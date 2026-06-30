@@ -9,6 +9,7 @@ import { RatingStars } from '@/components/directory/RatingStars'
 import { ContractorCard } from '@/components/directory/ContractorCard' // Named export
 import Map from '@/components/directory/Map'
 import { Phone,MapIcon } from 'lucide-react'
+import { RelatedContent } from '@/components/directory/RelatedContent'
 
 interface ContractorPageProps {
   params: Promise<{
@@ -122,6 +123,13 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
             stateSlug={stateInfo!.slug}
             citySlug={cityInfo!.slug}
             variant="detailed"
+          />
+          <RelatedContent
+            city={cityInfo?.name || ''}
+            state={stateInfo?.name || ''}
+            service="Roof Leak Repair"
+            relatedContractors={[]}
+            nearbyCities={[]}
           />
 
           {/* Reviews */}

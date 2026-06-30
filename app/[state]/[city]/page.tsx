@@ -126,6 +126,20 @@ export default async function CityPage({ params }: CityPageProps) {
           )
         })}
       </div>
+      <section className="mb-8">
+        <h2 className="text-2xl font-bold mb-4">Popular Services in {cityInfo.name}</h2>
+        <div className="flex flex-wrap gap-3">
+          {['Emergency Repair', 'Roof Inspection', 'Roof Leak Repair', 'Roof Replacement', 'Maintenance'].map((service) => (
+            <Link
+              key={service}
+              href={`/services/${service.toLowerCase().replace(/\s+/g, '-')}/${cityInfo.slug}`}
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition"
+            >
+              {service}
+            </Link>
+          ))}
+        </div>
+</section>
     </div>
   )
 }

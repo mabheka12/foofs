@@ -94,23 +94,24 @@ export function ContractorCard({
           </div>
 
           {/* Services */}
-          {contractor.servicesOffered && contractor.servicesOffered.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {contractor.servicesOffered.slice(0, 3).map((service: string) => (
-                <span
-                  key={service}
-                  className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full"
-                >
-                  {service}
-                </span>
-              ))}
-              {contractor.servicesOffered.length > 3 && (
-                <span className="text-xs text-gray-500">
-                  +{contractor.servicesOffered.length - 3} more
-                </span>
-              )}
-            </div>
-          )}
+       {contractor.servicesOffered && contractor.servicesOffered.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {contractor.servicesOffered.slice(0, 3).map((service: string) => (
+              <Link
+                key={service}
+                href={`/services/${service.toLowerCase().replace(/\s+/g, '-')}/${contractor.city?.slug || citySlug}`}
+                className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full hover:bg-blue-100 transition"
+              >
+                {service}
+              </Link>
+            ))}
+            {contractor.servicesOffered.length > 3 && (
+              <span className="text-xs text-gray-500">
+                +{contractor.servicesOffered.length - 3} more
+              </span>
+            )}
+          </div>
+        )}
         </div>
 
         {/* Action Buttons */}

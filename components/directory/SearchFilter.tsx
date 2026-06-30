@@ -123,20 +123,26 @@ export function SearchFilter({ className = '', compact = false }: SearchFilterPr
           />
         </div>
 
-        {/* Service Type */}
-        <select
-          value={serviceType}
-          onChange={(e) => setServiceType(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-          disabled={isSearching}
-        >
-          <option value="">All Services</option>
-          <option value="Emergency">🚨 Emergency Repair</option>
-          <option value="Inspection">🔍 Roof Inspection</option>
-          <option value="Repair">🔧 Roof Leak Repair</option>
-          <option value="Replacement">🏗️ Roof Replacement</option>
-          <option value="Maintenance">🛠️ Maintenance</option>
-        </select>
+            <select
+              value={serviceType}
+              onChange={(e) => {
+                const service = e.target.value
+                setServiceType(service)
+                // If there's a city selected, navigate directly
+                if (city && service) {
+                  router.push(`/services/${service.toLowerCase().replace(/\s+/g, '-')}/${city.toLowerCase().replace(/\s+/g, '-')}`)
+                }
+              }}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+              disabled={isSearching}
+            >
+              <option value="">All Services</option>
+              <option value="Emergency">🚨 Emergency Repair</option>
+              <option value="Inspection">🔍 Roof Inspection</option>
+              <option value="Repair">🔧 Roof Leak Repair</option>
+              <option value="Replacement">🏗️ Roof Replacement</option>
+              <option value="Maintenance">🛠️ Maintenance</option>
+            </select>
 
         {/* Location - City and State side by side */}
         <div className="grid grid-cols-2 gap-2">
