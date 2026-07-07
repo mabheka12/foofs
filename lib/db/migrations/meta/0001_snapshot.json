@@ -1,4 +1,6 @@
 {
+  "id": "b90cae06-0267-466b-b0f6-9d9bb3024634",
+  "prevId": "880b7ee1-0de6-467a-ab2e-ae5c2cd83739",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -111,38 +113,38 @@
         "blog_posts_state_id_states_id_fk": {
           "name": "blog_posts_state_id_states_id_fk",
           "tableFrom": "blog_posts",
+          "tableTo": "states",
           "columnsFrom": [
             "state_id"
           ],
-          "tableTo": "states",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         },
         "blog_posts_city_id_cities_id_fk": {
           "name": "blog_posts_city_id_cities_id_fk",
           "tableFrom": "blog_posts",
+          "tableTo": "cities",
           "columnsFrom": [
             "city_id"
           ],
-          "tableTo": "cities",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "blog_posts_slug_unique": {
           "name": "blog_posts_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -233,6 +235,7 @@
       },
       "indexes": {
         "unique_state_city": {
+          "name": "unique_state_city",
           "columns": [
             {
               "expression": "state_id",
@@ -247,26 +250,25 @@
               "nulls": "last"
             }
           ],
-          "with": {},
-          "name": "unique_state_city",
           "isUnique": true,
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "cities_state_id_states_id_fk": {
           "name": "cities_state_id_states_id_fk",
           "tableFrom": "cities",
+          "tableTo": "states",
           "columnsFrom": [
             "state_id"
           ],
-          "tableTo": "states",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -294,28 +296,28 @@
         "contractor_services_contractor_id_contractors_id_fk": {
           "name": "contractor_services_contractor_id_contractors_id_fk",
           "tableFrom": "contractor_services",
+          "tableTo": "contractors",
           "columnsFrom": [
             "contractor_id"
           ],
-          "tableTo": "contractors",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "contractor_services_service_type_id_service_types_id_fk": {
           "name": "contractor_services_service_type_id_service_types_id_fk",
           "tableFrom": "contractor_services",
+          "tableTo": "service_types",
           "columnsFrom": [
             "service_type_id"
           ],
-          "tableTo": "service_types",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -535,10 +537,17 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "opening_hours": {
+          "name": "opening_hours",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
         "unique_state_city_slug": {
+          "name": "unique_state_city_slug",
           "columns": [
             {
               "expression": "state_id",
@@ -559,39 +568,38 @@
               "nulls": "last"
             }
           ],
-          "with": {},
-          "name": "unique_state_city_slug",
           "isUnique": true,
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "contractors_city_id_cities_id_fk": {
           "name": "contractors_city_id_cities_id_fk",
           "tableFrom": "contractors",
+          "tableTo": "cities",
           "columnsFrom": [
             "city_id"
           ],
-          "tableTo": "cities",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "contractors_state_id_states_id_fk": {
           "name": "contractors_state_id_states_id_fk",
           "tableFrom": "contractors",
+          "tableTo": "states",
           "columnsFrom": [
             "state_id"
           ],
-          "tableTo": "states",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -657,15 +665,15 @@
         "reviews_contractor_id_contractors_id_fk": {
           "name": "reviews_contractor_id_contractors_id_fk",
           "tableFrom": "reviews",
+          "tableTo": "contractors",
           "columnsFrom": [
             "contractor_id"
           ],
-          "tableTo": "contractors",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -731,10 +739,10 @@
       "uniqueConstraints": {
         "service_types_slug_unique": {
           "name": "service_types_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -805,29 +813,27 @@
       "uniqueConstraints": {
         "states_slug_unique": {
           "name": "states_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "states_abbreviation_unique": {
           "name": "states_abbreviation_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "abbreviation"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     }
   },
   "enums": {},
   "schemas": {},
+  "sequences": {},
   "_meta": {
+    "columns": {},
     "schemas": {},
-    "tables": {},
-    "columns": {}
-  },
-  "id": "880b7ee1-0de6-467a-ab2e-ae5c2cd83739",
-  "prevId": "00000000-0000-0000-0000-000000000000",
-  "sequences": {}
+    "tables": {}
+  }
 }

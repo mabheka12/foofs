@@ -1,7 +1,7 @@
 // components/layout/Navbar.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Search, Phone, MapPin, ChevronDown } from 'lucide-react'
@@ -15,6 +15,8 @@ export default function Navbar({ states = [] }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isStatesOpen, setIsStatesOpen] = useState(false)
   const pathname = usePathname()
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Handle scroll effect
   useEffect(() => {
@@ -31,9 +33,48 @@ export default function Navbar({ states = [] }: NavbarProps) {
     setIsStatesOpen(false)
   }, [pathname])
 
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsStatesOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Check if route is active
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(path + '/')
+  }
+
+  // Handle mouse enter with clear timeout
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+    setIsStatesOpen(true)
+  }
+
+  // Handle mouse leave with delay
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsStatesOpen(false)
+    }, 200) // 200ms delay to allow moving to dropdown
+  }
+
+  // Handle state link click
+  const handleStateClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const target = e.currentTarget as HTMLAnchorElement
+    const href = target.getAttribute('href')
+    if (href) {
+      setIsStatesOpen(false)
+      window.location.href = href
+    }
   }
 
   // Top states for dropdown
@@ -77,12 +118,14 @@ export default function Navbar({ states = [] }: NavbarProps) {
               Home
             </Link>
 
-            {/* States Dropdown */}
-            <div className="relative">
+            {/* States Dropdown - Fixed */}
+            <div 
+              className="relative"
+              ref={dropdownRef}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
               <button
-                onClick={() => setIsStatesOpen(!isStatesOpen)}
-                onMouseEnter={() => setIsStatesOpen(true)}
-                onMouseLeave={() => setIsStatesOpen(false)}
                 className={`flex items-center gap-1 text-sm font-medium transition ${
                   isActive('/states')
                     ? 'text-blue-600'
@@ -98,8 +141,6 @@ export default function Navbar({ states = [] }: NavbarProps) {
               {isStatesOpen && (
                 <div
                   className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 py-2"
-                  onMouseEnter={() => setIsStatesOpen(true)}
-                  onMouseLeave={() => setIsStatesOpen(false)}
                   role="menu"
                 >
                   <div className="max-h-96 overflow-y-auto">
@@ -171,20 +212,7 @@ export default function Navbar({ states = [] }: NavbarProps) {
               aria-label="Search"
             >
               <Search className="w-5 h-5" />
-            </Link>
-            <a
-              href="tel:+18005551234"
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Emergency</span>
-            </a>
-            <Link
-              href="/submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-            >
-              List Your Business
-            </Link>
+            </Link>  
           </div>
 
           {/* Mobile Menu Button */}
@@ -201,8 +229,8 @@ export default function Navbar({ states = [] }: NavbarProps) {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100">
-          <div className="container mx-auto px-4 py-4 space-y-3">
+        <div className="md:hidden bg-white border-t border-gray-100 shadow-lg">
+          <div className="container mx-auto px-4 py-4 space-y-3 max-h-[80vh] overflow-y-auto">
             <Link
               href="/"
               className={`block py-2 text-sm font-medium transition ${
@@ -277,20 +305,6 @@ export default function Navbar({ states = [] }: NavbarProps) {
             </Link>
 
             <div className="pt-4 border-t border-gray-100 space-y-3">
-              <a
-                href="tel:+18005551234"
-                className="flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-700 transition text-sm font-medium"
-              >
-                <Phone className="w-4 h-4" />
-                Emergency: (800) 555-1234
-              </a>
-              <Link
-                href="/submit"
-                className="block text-center bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                onClick={() => setIsOpen(false)}
-              >
-                List Your Business
-              </Link>
               <div className="flex items-center gap-2 text-sm text-gray-500 justify-center">
                 <MapPin className="w-4 h-4" />
                 <span>Serving all 50 states</span>

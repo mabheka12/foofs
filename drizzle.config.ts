@@ -1,17 +1,15 @@
-// drizzle.config.ts
-import { defineConfig } from 'drizzle-kit'
-import * as dotenv from 'dotenv'
-
-dotenv.config()
-
-console.log('📡 Using DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Missing')
+import { defineConfig } from "drizzle-kit";
+import type { Config } from "drizzle-kit";
+import 'dotenv/config'; // Make sure your env variables are loaded
 
 export default defineConfig({
-  schema: './lib/db/schema.ts',
-  out: './lib/db/migrations',
-  // use the correct property name expected by drizzle-kit
-  driver: 'pg',
-  // drizzle-kit typings for dbCredentials can be restrictive depending on the target
-  // environment. Cast to any to allow using a connection string from env vars.
-  dbCredentials: ({ connectionString: process.env.DATABASE_URL || '' } as any),
-})
+  schema: "./lib/db/schema.ts", // (Update this to match your schema path)
+  out: "./lib/db/migrations", // (Update this to your migration folder)
+  dialect: "postgresql", // <--- ADD THIS LINE (or "mysql" / "sqlite")
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+  // Exclude these tables from migration
+  tablesFilter: ['!faqs', '!regions', '!wineries'],
+} satisfies Config);
+

@@ -1,13 +1,8 @@
 // components/layout/Footer.tsx
 import Link from 'next/link'
 import { 
-  Phone, 
   Mail, 
   MapPin, 
-  Facebook, 
-  Twitter, 
-  Instagram, 
-  Youtube,
   Shield,
   Clock,
   Award,
@@ -47,44 +42,7 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
               Compare reviews, get free estimates, and find emergency 
               roof repair services 24/7.
             </p>
-            <div className="flex gap-3">
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-gray-800 rounded-lg hover:bg-blue-600 transition text-gray-400 hover:text-white"
-                aria-label="Facebook"
-              >
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-gray-800 rounded-lg hover:bg-blue-400 transition text-gray-400 hover:text-white"
-                aria-label="Twitter"
-              >
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-gray-800 rounded-lg hover:bg-pink-600 transition text-gray-400 hover:text-white"
-                aria-label="Instagram"
-              >
-                <Instagram className="w-4 h-4" />
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-gray-800 rounded-lg hover:bg-red-600 transition text-gray-400 hover:text-white"
-                aria-label="YouTube"
-              >
-                <Youtube className="w-4 h-4" />
-              </a>
-            </div>
+          
           </div>
 
           {/* Quick Links */}
@@ -116,9 +74,14 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
                   Contact
                 </Link>
               </li>
-              <li>
-                <Link href="/submit" className="hover:text-white transition">
-                  List Your Business
+                <li>
+                <Link href="/privacy-policy" className="hover:text-white transition">
+                  Privacy Policy
+                </Link>
+              </li>
+                <li>
+                <Link href="/terms" className="hover:text-white transition">
+                  Terms of Service
                 </Link>
               </li>
             </ul>
@@ -151,15 +114,6 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
           <div>
             <h3 className="text-white font-semibold mb-4">Contact Us</h3>
             <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-3">
-                <Phone className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
-                <div>
-                  <div className="font-medium text-white">Emergency</div>
-                  <a href="tel:+18005551234" className="hover:text-white transition">
-                    (800) 555-1234
-                  </a>
-                </div>
-              </li>
               <li className="flex items-start gap-3">
                 <Mail className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
                 <div>
@@ -214,9 +168,6 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
               </Link>
               <Link href="/terms" className="hover:text-white transition">
                 Terms of Service
-              </Link>
-              <Link href="/sitemap" className="hover:text-white transition">
-                Sitemap
               </Link>
             </div>
           </div>

@@ -76,7 +76,7 @@ export default async function HomePage() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-blue-600/20 backdrop-blur-sm text-blue-200 px-4 py-2 rounded-full text-sm font-medium mb-6 border border-blue-400/30">
               <Shield className="w-4 h-4" />
-              Trusted Directory Since 2024
+              Trusted Directory 
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
@@ -87,7 +87,7 @@ export default async function HomePage() {
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-200 mb-8 max-w-2xl">
-              Compare top-rated contractors, read reviews, and get free estimates 
+              Compare top-rated contractors and get free estimates 
               for roof leak repair services in your area.
             </p>
 
@@ -104,7 +104,7 @@ export default async function HomePage() {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-400" />
-                <span>24/7 Emergency Service</span>
+                <span>24/7 Emergency Services</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-green-400" />
@@ -124,16 +124,12 @@ export default async function HomePage() {
               <div className="text-gray-600">Contractors Listed</div>
             </div>
             <div className="relative">
-              <div className="text-3xl font-bold text-blue-600">15,000+</div>
-              <div className="text-gray-600">Verified Reviews</div>
-            </div>
-            <div className="relative">
               <div className="text-3xl font-bold text-blue-600">50</div>
               <div className="text-gray-600">States Covered</div>
             </div>
             <div className="relative">
               <div className="text-3xl font-bold text-blue-600">24/7</div>
-              <div className="text-gray-600">Emergency Service</div>
+              <div className="text-gray-600">Emergency Services</div>
             </div>
           </div>
         </div>
@@ -196,24 +192,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center text-white border border-white/10">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Verified Contractors</h3>
-              <p className="text-blue-100 text-sm">
-                All contractors are vetted and verified for quality and reliability.
-              </p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center text-white border border-white/10">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Star className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Real Reviews</h3>
-              <p className="text-blue-100 text-sm">
-                Read authentic reviews from real customers to make informed decisions.
-              </p>
-            </div>
+  
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center text-white border border-white/10">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock className="w-8 h-8" />
@@ -255,12 +234,6 @@ export default async function HomePage() {
               className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition font-medium"
             >
               Search Contractors
-            </Link>
-            <Link
-              href="/submit"
-              className="bg-gray-100 text-gray-800 px-8 py-3 rounded-lg hover:bg-gray-200 transition font-medium"
-            >
-              List Your Business
             </Link>
           </div>
         </div>

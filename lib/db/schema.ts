@@ -77,6 +77,16 @@ export const contractors = pgTable('contractors', {
   published: boolean('published').default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+   // NEW COLUMNS for opening hours
+  openingHours: jsonb('opening_hours').$type<{
+    monday: { open: string; close: string } | null
+    tuesday: { open: string; close: string } | null
+    wednesday: { open: string; close: string } | null
+    thursday: { open: string; close: string } | null
+    friday: { open: string; close: string } | null
+    saturday: { open: string; close: string } | null
+    sunday: { open: string; close: string } | null
+  }>(),
 }, (table) => ({
   uniqueStateCitySlug: uniqueIndex('unique_state_city_slug').on(table.stateId, table.cityId, table.slug),
 }))
