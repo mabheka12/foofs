@@ -6,11 +6,11 @@ interface ContractorGridProps {
   showMap?: boolean
 }
 
-export function ContractorGrid({ contractors, showMap = true }: ContractorGridProps) {
+export function ContractorGrid({ contractors, showMap = false }: ContractorGridProps) {
   if (!contractors || contractors.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <p className="text-gray-600">No contractors found in this area.</p>
+        <p className="text-gray-600">No contractors found .</p>
       </div>
     )
   }

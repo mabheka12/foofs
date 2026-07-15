@@ -1,8 +1,7 @@
-// components/ui/use-toast.ts (Simplified, working version)
+// components/ui/Use-Toast.tsx
 'use client'
 
 import * as React from 'react'
-
 import type { ToastActionElement, ToastProps } from './Toast'
 
 const TOAST_LIMIT = 5
@@ -153,7 +152,7 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
-      onOpenChange: (open) => {
+      onOpenChange: (open: boolean) => {
         if (!open) dismiss()
       },
     },

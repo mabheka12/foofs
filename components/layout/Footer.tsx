@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { 
   Mail, 
   MapPin, 
-  Shield,
   Clock,
   Award,
   Users
@@ -19,7 +18,6 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
 
   // Top states for footer
   const footerStates = states.slice(0, 12)
-  const topCities = cities.slice(0, 8)
 
   return (
     <footer className="bg-gray-900 text-gray-300">
@@ -30,11 +28,11 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                R
+                FRF
               </div>
               <div>
-                <span className="text-xl font-bold text-white">RoofLeak</span>
-                <span className="text-sm text-gray-400 block -mt-1">Repair Directory</span>
+                <span className="text-xl font-bold text-white">Find</span>
+                <span className="text-xl text-gray-400 block -mt-1">RoofFixers.com</span>
               </div>
             </div>
             <p className="text-sm text-gray-400 mb-4">
@@ -109,6 +107,7 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
             )}
           </div>
         </div>
+      </div>
 
           {/* Contact Info */}
           <div>
@@ -118,8 +117,8 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
                 <Mail className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-white">Email</div>
-                  <a href="mailto:info@roofleakrepaird.com" className="hover:text-white transition">
-                    info@roofleakrepaird.com
+                  <a href="mailto:info@findrooffixers.com" className="hover:text-white transition">
+                    info@findrooffixers.com
                   </a>
                 </div>
               </li>
@@ -134,10 +133,7 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
 
             {/* Trust Badges */}
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
-                <Shield className="w-4 h-4 text-green-400" />
-                <span>Verified Contractors</span>
-              </div>
+             
               <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
                 <Clock className="w-4 h-4 text-blue-400" />
                 <span>24/7 Support</span>
@@ -148,19 +144,18 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
               </div>
               <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
                 <Users className="w-4 h-4 text-purple-400" />
-                <span>15,000+ Reviews</span>
+                <span>15,000+ Google Reviews</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
             <p>
-              &copy; {currentYear} RoofLeak Repair Directory. All rights reserved.
+              &copy; {currentYear} FindRoofFixers.com. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <Link href="/privacy" className="hover:text-white transition">
@@ -173,6 +168,6 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
           </div>
         </div>
       </div>
-    </footer>
+    </footer> 
   )
 }

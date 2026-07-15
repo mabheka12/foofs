@@ -95,13 +95,13 @@ export default function Navbar({ states = [] }: NavbarProps) {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg group-hover:bg-blue-700 transition">
-              R
+              FRF
             </div>
             <div>
               <span className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition">
-                RoofLeak
+                Find
               </span>
-              <span className="text-sm text-gray-500 block -mt-1">Repair Directory</span>
+              <span className="text-sm text-gray-500 block -mt-1">RoofFixers.com</span>
             </div>
           </Link>
 

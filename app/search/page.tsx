@@ -1,14 +1,30 @@
 // app/search/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { ContractorCard } from '@/components/directory/ContractorCard'
 import { SearchFilter } from '@/components/directory/SearchFilter'
 
-export default function SearchPage() {
+// Loading component
+function SearchLoading() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Main search content component
+function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -207,15 +223,7 @@ export default function SearchPage() {
 
       {/* Results Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
-          ))}
-        </div>
+        <SearchLoading />
       ) : results.length > 0 ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -320,5 +328,14 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// Main page with Suspense boundary
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchLoading />}>
+      <SearchContent />
+    </Suspense>
   )
 }
