@@ -1,7 +1,7 @@
 // app/blog/[slug]/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import { getDb } from '@/lib/db'
-import { blogPosts, states, cities } from '@/lib/db/schema'
+import { blogPosts } from '@/lib/db/schema'
 import { eq, and, sql, desc } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -47,6 +47,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
   const db = getDb()
 
+  // ✅ Get blog post with city/state from blogPosts table directly
   const result = await db
     .select({
       id: blogPosts.id,
@@ -60,14 +61,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       tags: blogPosts.tags,
       metaTitle: blogPosts.metaTitle,
       metaDescription: blogPosts.metaDescription,
-      stateName: states.name,
-      stateSlug: states.slug,
-      cityName: cities.name,
-      citySlug: cities.slug,
+      city: blogPosts.city,
+      state: blogPosts.state,
     })
     .from(blogPosts)
-    .leftJoin(states, eq(blogPosts.stateId, states.id))
-    .leftJoin(cities, eq(blogPosts.cityId, cities.id))
     .where(
       and(
         eq(blogPosts.slug, slug),
@@ -142,6 +139,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       .limit(3)
   }
 
+  // Generate state slug from state name
+  const stateSlug = post.state?.toLowerCase().replace(/\s+/g, '-') || ''
+  const citySlug = post.city?.toLowerCase().replace(/\s+/g, '-') || ''
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Breadcrumb */}
@@ -193,14 +194,14 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 {post.author}
               </span>
             )}
-            {post.cityName && (
+            {post.city && post.state && (
               <span className="flex items-center gap-2">
                 <span>📍</span>
                 <Link
-                  href={`/${post.stateSlug}/${post.citySlug}`}
+                  href={`/${stateSlug}?city=${citySlug}`}
                   className="text-blue-600 hover:underline"
                 >
-                  {post.cityName}, {post.stateName}
+                  {post.city}, {post.state}
                 </Link>
               </span>
             )}
@@ -229,7 +230,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </ReactMarkdown>
         </div>
 
-        {/* Share Section - Using Client Component */}
+        {/* Share Section */}
         <div className="mt-8 pt-8 border-t border-gray-200">
           <ShareButtons 
             title={post.title} 

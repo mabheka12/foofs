@@ -1,6 +1,6 @@
 // app/sitemap.ts
 import { getDb } from '@/lib/db'
-import { states, cities, contractors, blogPosts } from '@/lib/db/schema'
+import { contractors, blogPosts } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export default async function sitemap() {
@@ -25,55 +25,67 @@ export default async function sitemap() {
   }))
 
   try {
-    // State pages - only get states (lightweight)
-    const stateList = await db.select({
-      slug: states.slug,
-    }).from(states)
+    // ✅ State pages - from contractors table (no cities table needed)
+    const stateList = await db
+      .select({
+        stateSlug: contractors.stateSlug,
+        state: contractors.state,
+      })
+      .from(contractors)
+      .where(eq(contractors.published, true))
+      .groupBy(contractors.state, contractors.stateSlug)
     
-    const statePages = stateList.map(state => ({
-      url: `${baseUrl}/${state.slug}`,
-      lastModified: new Date().toISOString(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
-    }))
+    const statePages = stateList
+      .filter(item => item.stateSlug) // Filter out null slugs
+      .map(state => ({
+        url: `${baseUrl}/${state.stateSlug}`,
+        lastModified: new Date().toISOString(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.9,
+      }))
 
-    // City pages - get cities with their state slugs
+    // ✅ City pages - from contractors table (no cities table needed)
     const cityList = await db
       .select({
-        citySlug: cities.slug,
-        stateSlug: states.slug,
+        citySlug: contractors.citySlug,
+        city: contractors.city,
+        stateSlug: contractors.stateSlug,
+        count: sql<number>`COUNT(*)`.as('count'),
       })
-      .from(cities)
-      .innerJoin(states, eq(cities.stateId, states.id))
+      .from(contractors)
+      .where(eq(contractors.published, true))
+      .groupBy(contractors.city, contractors.citySlug, contractors.stateSlug)
+      .orderBy(sql`count DESC`)
       .limit(500) // Limit to prevent timeout
     
-    const cityPages = cityList.map(({ citySlug, stateSlug }) => ({
-      url: `${baseUrl}/${stateSlug}/${citySlug}`,
-      lastModified: new Date().toISOString(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    }))
+    const cityPages = cityList
+      .filter(item => item.citySlug && item.stateSlug) // Filter out null slugs
+      .map(({ citySlug, stateSlug }) => ({
+        url: `${baseUrl}/${stateSlug}?city=${citySlug}`,
+        lastModified: new Date().toISOString(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.8,
+      }))
 
-    // Contractor pages - only get published contractors
+    // ✅ Contractor pages - from contractors table (no cities table needed)
     const contractorList = await db
       .select({
-        contractorSlug: contractors.slug,
-        citySlug: cities.slug,
-        stateSlug: states.slug,
+        slug: contractors.slug,
+        stateSlug: contractors.stateSlug,
         updatedAt: contractors.updatedAt,
       })
       .from(contractors)
-      .innerJoin(cities, eq(contractors.cityId, cities.id))
-      .innerJoin(states, eq(contractors.stateId, states.id))
       .where(eq(contractors.published, true))
       .limit(1000) // Limit to prevent timeout
 
-    const contractorPages = contractorList.map(({ contractorSlug, citySlug, stateSlug, updatedAt }) => ({
-      url: `${baseUrl}/${stateSlug}/${citySlug}/${contractorSlug}`,
-      lastModified: updatedAt || new Date().toISOString(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    }))
+    const contractorPages = contractorList
+      .filter(item => item.slug && item.stateSlug) // Filter out null slugs
+      .map(({ slug, stateSlug, updatedAt }) => ({
+        url: `${baseUrl}/${stateSlug}/${slug}`,
+        lastModified: updatedAt || new Date().toISOString(),
+        changeFrequency: 'monthly' as const,
+        priority: 0.7,
+      }))
 
     // Blog pages
     const blogList = await db

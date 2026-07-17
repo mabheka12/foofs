@@ -1,7 +1,7 @@
 // app/services/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import { getDb } from '@/lib/db'
-import { serviceTypes, cities, contractors, states } from '@/lib/db/schema'
+import { serviceTypes, contractors } from '@/lib/db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
 import Link from 'next/link'
 import { MapPin, Building, ArrowRight, Wrench, Shield, Clock } from 'lucide-react'
@@ -47,24 +47,27 @@ export default async function ServicesPage() {
     })
   )
 
-  // Get top cities with most contractors
-  const topCities = await db.execute(
-    sql`
-      SELECT 
-        c.name as city_name,
-        c.slug as city_slug,
-        s.name as state_name,
-        s.slug as state_slug,
-        s.abbreviation as state_abbr,
-        COUNT(ct.id) as contractor_count
-      FROM cities c
-      LEFT JOIN states s ON c.state_id = s.id
-      LEFT JOIN contractors ct ON ct.city_id = c.id AND ct.published = true
-      GROUP BY c.name, c.slug, s.name, s.slug, s.abbreviation
-      ORDER BY contractor_count DESC
-      LIMIT 12
-    `
-  )
+  // ✅ Get top cities with most contractors (from contractors table directly)
+  const topCities = await db
+    .select({
+      cityName: contractors.city,
+      citySlug: contractors.citySlug,
+      stateName: contractors.state,
+      stateSlug: contractors.stateSlug,
+      stateAbbr: contractors.state_abbrev,
+      contractorCount: sql<number>`COUNT(*)`.as('contractor_count'),
+    })
+    .from(contractors)
+    .where(eq(contractors.published, true))
+    .groupBy(
+      contractors.city, 
+      contractors.citySlug, 
+      contractors.state, 
+      contractors.stateSlug, 
+      contractors.state_abbrev
+    )
+    .orderBy(sql`contractor_count DESC`)
+    .limit(12)
 
   // Get featured services with contractors
   const featuredServices = serviceCounts
@@ -105,8 +108,10 @@ export default async function ServicesPage() {
           <div className="text-sm text-gray-600">Total Contractors</div>
         </div>
         <div className="bg-purple-50 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-purple-600">50</div>
-          <div className="text-sm text-gray-600">States Covered</div>
+          <div className="text-2xl font-bold text-purple-600">
+            {topCities.length}
+          </div>
+          <div className="text-sm text-gray-600">Cities Covered</div>
         </div>
         <div className="bg-orange-50 rounded-lg p-4 text-center">
           <div className="text-2xl font-bold text-orange-600">24/7</div>
@@ -146,21 +151,21 @@ export default async function ServicesPage() {
         ))}
       </div>
 
-      {/* Top Cities Section */}
+      {/* Top Cities Section - ✅ FIXED */}
       <h2 className="text-2xl font-bold mb-6">Top Cities with Roofing Contractors</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-12">
-        {topCities.map((city: any) => (
+        {topCities.map((city) => (
           <Link
-            key={city.city_slug}
-            href={`/${city.state_slug}/${city.city_slug}`}
+            key={city.citySlug}
+            href={`/${city.stateSlug}?city=${city.citySlug}`}
             className="bg-white rounded-lg p-4 hover:shadow-md transition border border-gray-100 hover:border-blue-200 text-center"
           >
             <div className="font-semibold text-gray-900 hover:text-blue-600 transition">
-              {city.city_name}
+              {city.cityName}
             </div>
-            <div className="text-sm text-gray-500">{city.state_abbr}</div>
+            <div className="text-sm text-gray-500">{city.stateAbbr}</div>
             <div className="text-xs text-gray-400 mt-1">
-              {city.contractor_count || 0} contractors
+              {Number(city.contractorCount) || 0} contractors
             </div>
           </Link>
         ))}

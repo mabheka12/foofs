@@ -14,51 +14,23 @@ import {
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
-export const states = pgTable('states', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  slug: varchar('slug', { length: 50 }).notNull().unique(),
-  abbreviation: varchar('abbreviation', { length: 2 }).notNull().unique(),
-  description: text('description'),
-  metaTitle: varchar('meta_title', { length: 160 }),
-  metaDescription: text('meta_description'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-export const cities = pgTable('cities', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  slug: varchar('slug', { length: 100 }).notNull(),
-  stateId: integer('state_id').references(() => states.id, { onDelete: 'cascade' }).notNull(),
-  county: varchar('county', { length: 100 }),
-  population: integer('population'),
-  latitude: numeric('latitude', { precision: 10, scale: 7 }),
-  longitude: numeric('longitude', { precision: 10, scale: 7 }),
-  description: text('description'),
-  metaTitle: varchar('meta_title', { length: 160 }),
-  metaDescription: text('meta_description'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  uniqueStateCity: uniqueIndex('unique_state_city').on(table.stateId, table.slug),
-}))
-
 export const contractors = pgTable('contractors', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 200 }).notNull(),
   slug: varchar('slug', { length: 200 }).notNull(),
-  businessName: varchar('business_name', { length: 200 }),
   description: text('description'),
   address: text('address'),
-  cityId: integer('city_id').references(() => cities.id, { onDelete: 'cascade' }).notNull(),
-  stateId: integer('state_id').references(() => states.id, { onDelete: 'cascade' }).notNull(),
+  stateSlug: varchar('state_slug', { length: 100 }),
+  latitude: numeric('latitude', { precision: 10, scale: 7 }),
+  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  city: text('city'),
+  citySlug: varchar('city_slug', { length: 100 }),
+  state: text('state'),
+  state_abbrev: varchar('state_abbrev', { length: 10 }),
   zipCode: varchar('zip_code', { length: 10 }),
   phone: varchar('phone', { length: 20 }),
   email: varchar('email', { length: 100 }),
   website: varchar('website', { length: 200 }),
-  googleMapsUrl: text('google_maps_url'),
-  googlePlaceId: varchar('google_place_id', { length: 100 }),
   rating: numeric('rating', { precision: 3, scale: 1 }),
   reviewCount: integer('review_count').default(0),
   licenseNumber: varchar('license_number', { length: 50 }),
@@ -88,7 +60,7 @@ export const contractors = pgTable('contractors', {
     sunday: { open: string; close: string } | null
   }>(),
 }, (table) => ({
-  uniqueStateCitySlug: uniqueIndex('unique_state_city_slug').on(table.stateId, table.cityId, table.slug),
+  uniqueStateCitySlug: uniqueIndex('unique_state_city_slug').on(table.state, table.city, table.slug),
 }))
 
 export const reviews = pgTable('reviews', {
@@ -110,8 +82,8 @@ export const blogPosts = pgTable('blog_posts', {
   excerpt: text('excerpt'),
   featuredImage: text('featured_image'),
   author: varchar('author', { length: 100 }),
-  stateId: integer('state_id').references(() => states.id, { onDelete: 'set null' }),
-  cityId: integer('city_id').references(() => cities.id, { onDelete: 'set null' }),
+  city: text('city'),
+  state: text('state'),
   tags: jsonb('tags').$type<string[]>(),
   metaTitle: varchar('meta_title', { length: 160 }),
   metaDescription: text('meta_description'),
@@ -140,30 +112,11 @@ export const contractorServices = pgTable('contractor_services', {
 }))
 
 // Relations
-export const statesRelations = relations(states, ({ many }) => ({
-  cities: many(cities),
-  contractors: many(contractors),
-  blogPosts: many(blogPosts),
-}))
 
-export const citiesRelations = relations(cities, ({ one, many }) => ({
-  state: one(states, {
-    fields: [cities.stateId],
-    references: [states.id],
-  }),
-  contractors: many(contractors),
-  blogPosts: many(blogPosts),
-}))
+
 
 export const contractorsRelations = relations(contractors, ({ one, many }) => ({
-  city: one(cities, {
-    fields: [contractors.cityId],
-    references: [cities.id],
-  }),
-  state: one(states, {
-    fields: [contractors.stateId],
-    references: [states.id],
-  }),
+  
   reviews: many(reviews),
   services: many(serviceTypes, {
     relationName: 'contractorServices',

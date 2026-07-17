@@ -1,19 +1,20 @@
-// components/layout/Navbar.tsx
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Search, Phone, MapPin, ChevronDown } from 'lucide-react'
+import { Menu, X, Search, MapPin, ChevronDown } from 'lucide-react'
 
 interface NavbarProps {
-  states?: { name: string; slug: string }[]
+  states?: { name: string; slug: string; count: number }[]
 }
 
 export default function Navbar({ states = [] }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isStatesOpen, setIsStatesOpen] = useState(false)
+  const [topStates, setTopStates] = useState<{ name: string; slug: string; count: number }[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -63,22 +64,24 @@ export default function Navbar({ states = [] }: NavbarProps) {
   const handleMouseLeave = () => {
     closeTimeoutRef.current = setTimeout(() => {
       setIsStatesOpen(false)
-    }, 200) // 200ms delay to allow moving to dropdown
+    }, 200)
   }
 
-  // Handle state link click
-  const handleStateClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    const target = e.currentTarget as HTMLAnchorElement
-    const href = target.getAttribute('href')
-    if (href) {
-      setIsStatesOpen(false)
-      window.location.href = href
+  // ✅ Fetch states from API
+  useEffect(() => {
+    const fetchStates = async () => {
+      try {
+        const response = await fetch('/api/states')
+        const data = await response.json()
+        setTopStates(data.slice(0, 8))
+      } catch (error) {
+        console.error('Error fetching states:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
-
-  // Top states for dropdown
-  const topStates = states.slice(0, 12)
+    fetchStates()
+  }, [])
 
   return (
     <nav
@@ -95,13 +98,13 @@ export default function Navbar({ states = [] }: NavbarProps) {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg group-hover:bg-blue-700 transition">
-              FRF
+              RR
             </div>
             <div>
               <span className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition">
-                Find
+                Roof
               </span>
-              <span className="text-sm text-gray-500 block -mt-1">RoofFixers.com</span>
+              <span className="text-sm text-gray-500 block -mt-1">Repair.com</span>
             </div>
           </Link>
 
@@ -118,7 +121,7 @@ export default function Navbar({ states = [] }: NavbarProps) {
               Home
             </Link>
 
-            {/* States Dropdown - Fixed */}
+            {/* States Dropdown - ✅ FIXED */}
             <div 
               className="relative"
               ref={dropdownRef}
@@ -144,26 +147,35 @@ export default function Navbar({ states = [] }: NavbarProps) {
                   role="menu"
                 >
                   <div className="max-h-96 overflow-y-auto">
-                    {topStates.map((state) => (
-                      <Link
-                        key={state.slug}
-                        href={`/${state.slug}`}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition"
-                        role="menuitem"
-                        onClick={() => setIsStatesOpen(false)}
-                      >
-                        {state.name}
-                      </Link>
-                    ))}
-                    {states.length > 12 && (
-                      <Link
-                        href="/states"
-                        className="block px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100 mt-1 pt-2"
-                        role="menuitem"
-                        onClick={() => setIsStatesOpen(false)}
-                      >
-                        View All 50 States →
-                      </Link>
+                    {isLoading ? (
+                      <div className="px-4 py-2 text-sm text-gray-400">Loading...</div>
+                    ) : (
+                      <>
+                        {topStates.map((state) => (
+                          <Link
+                            key={state.slug}
+                            href={`/${state.slug}`}
+                            className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition"
+                            role="menuitem"
+                            onClick={() => setIsStatesOpen(false)}
+                          >
+                            <span>{state.name}</span>
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                              {state.count}
+                            </span>
+                          </Link>
+                        ))}
+                        {topStates.length > 0 && (
+                          <Link
+                            href="/states"
+                            className="block px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100 mt-1 pt-2"
+                            role="menuitem"
+                            onClick={() => setIsStatesOpen(false)}
+                          >
+                            View All States →
+                          </Link>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -243,21 +255,29 @@ export default function Navbar({ states = [] }: NavbarProps) {
               Home
             </Link>
 
+            {/* ✅ Mobile States - FIXED */}
             <div className="space-y-1">
               <div className="text-sm font-medium text-gray-700 py-1">States</div>
-              <div className="grid grid-cols-2 gap-1 pl-2">
-                {topStates.slice(0, 8).map((state) => (
-                  <Link
-                    key={state.slug}
-                    href={`/${state.slug}`}
-                    className="py-1.5 text-sm text-gray-600 hover:text-blue-600 transition"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {state.name}
-                  </Link>
-                ))}
-              </div>
-              {states.length > 8 && (
+              {isLoading ? (
+                <div className="py-2 px-2 text-sm text-gray-400">Loading...</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1 pl-2">
+                  {topStates.slice(0, 8).map((state) => (
+                    <Link
+                      key={state.slug}
+                      href={`/${state.slug}`}
+                      className="flex items-center justify-between py-1.5 text-sm text-gray-600 hover:text-blue-600 transition"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <span>{state.name}</span>
+                      <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded-full">
+                        {state.count}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {topStates.length > 0 && (
                 <Link
                   href="/states"
                   className="block py-1.5 text-sm text-blue-600 font-medium"

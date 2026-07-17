@@ -1,26 +1,27 @@
- // app/[state]/[city]/[slug]/page.tsx
+// app/[state]/[slug]/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
-import { db } from '@/lib/db'
-import { contractors, cities, states, reviews } from '@/lib/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { getDb } from '@/lib/db'
+import { contractors, reviews } from '@/lib/db/schema'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { RatingStars } from '@/components/directory/RatingStars'
 import { ContractorCard } from '@/components/directory/ContractorCard'
 import Map from '@/components/directory/Map'
-import { Phone, MapPin, Clock, Star, Users, Shield, FileCheck, CreditCard, Calendar, Award, ExternalLink } from 'lucide-react'
+import { Phone, MapPin, Clock, Star, Shield, FileCheck, CreditCard, Calendar, Award, ExternalLink } from 'lucide-react'
 import { RelatedContent } from '@/components/directory/RelatedContent'
 
 interface ContractorPageProps {
   params: Promise<{
     state: string
-    city: string
     slug: string
   }>
 }
 
 export async function generateMetadata({ params }: ContractorPageProps) {
-  const { state, city, slug } = await params
+  const { state, slug } = await params
+  
+  const db = getDb()
   
   const result = await db
     .select()
@@ -32,25 +33,28 @@ export async function generateMetadata({ params }: ContractorPageProps) {
       )
     )
     .limit(1)
-    .leftJoin(cities, eq(contractors.cityId, cities.id))
-    .leftJoin(states, eq(contractors.stateId, states.id))
 
   if (!result.length) return {}
 
-  const data = result[0]
-  const contractor = data.contractors
+  const contractor = result[0]
+  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
   return generateSeoMetadata({
-    title: `${contractor.businessName || contractor.name} - Roof Leak Repair in ${data.cities?.name}, ${data.states?.abbreviation}`,
-    description: contractor.description || `Professional roof leak repair services from ${contractor.businessName || contractor.name}.`,
-    keywords: [contractor.businessName || contractor.name, 'roof leak repair', 'roofing contractor'],
-    canonical: `/${data.states?.slug}/${data.cities?.slug}/${contractor.slug}`,
+    title: `${contractor.name} - Roof Leak Repair in ${contractor.city || stateName}`,
+    description: contractor.description || `Professional roof leak repair services from ${contractor.name}.`,
+    keywords: [contractor.name, 'roof leak repair', 'roofing contractor'],
+    canonical: `/${state}/${contractor.slug}`,
   })
 }
 
 export default async function ContractorPage({ params }: ContractorPageProps) {
-  const { state, city, slug } = await params
+  const { state, slug } = await params
   
+  const db = getDb()
+  const stateSlug = state
+  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  
+  // Get contractor by slug
   const result = await db
     .select()
     .from(contractors)
@@ -61,17 +65,12 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
       )
     )
     .limit(1)
-    .leftJoin(cities, eq(contractors.cityId, cities.id))
-    .leftJoin(states, eq(contractors.stateId, states.id))
 
   if (!result.length) notFound()
 
-  const data = result[0]
-  const contractor = data.contractors
-  const cityInfo = data.cities
-  const stateInfo = data.states
+  const contractor = result[0]
 
-  // Get reviews (Google reviews from the reviews table)
+  // Get reviews
   const contractorReviews = await db
     .select()
     .from(reviews)
@@ -79,164 +78,9 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
     .orderBy(desc(reviews.publishedAt))
     .limit(10)
 
-  const contractorLocation = contractor as {
-    latitude?: string | null
-    longitude?: string | null
-  }
-
   // Helper to safely get latitude/longitude
-  const getLatitude = () => {
-    if (contractorLocation.latitude) return contractorLocation.latitude
-    if (cityInfo?.latitude) return cityInfo.latitude
-    return null
-  }
-
-  const getLongitude = () => {
-    if (contractorLocation.longitude) return contractorLocation.longitude
-    if (cityInfo?.longitude) return cityInfo.longitude
-    return null
-  }
-
-  const latitude = getLatitude()
-  const longitude = getLongitude()
-
- // Helper to format opening hours for display - Multi-format support
-const formatOpeningHours = (hours: any) => {
-  if (!hours) return null
-  
-  // If it's a string, try to parse it
-  if (typeof hours === 'string') {
-    try {
-      hours = JSON.parse(hours)
-    } catch (e) {
-      // Try to parse as a simple format
-      return parseSimpleHoursString(hours)
-    }
-  }
-  
-  // If it's an array, process directly
-  if (Array.isArray(hours)) {
-    return parseArrayHours(hours)
-  }
-  
-  // If it's an object, process as key-value pairs
-  if (typeof hours === 'object' && hours !== null) {
-    return parseObjectHours(hours)
-  }
-  
-  return null
-}
-
-function parseSimpleHoursString(str: string) {
-  const dayMap: Record<string, string> = {
-    mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
-    fri: 'Friday', sat: 'Saturday', sun: 'Sunday'
-  }
-  
-  const result: { day: string; open: string; close: string }[] = []
-  const parts = str.split(',').map(p => p.trim())
-  
-  for (const part of parts) {
-    const rangeMatch = part.match(/([A-Za-z]+)\s*-\s*([A-Za-z]+)/)
-    if (rangeMatch) {
-      const startDay = rangeMatch[1].toLowerCase().substring(0, 3)
-      const endDay = rangeMatch[2].toLowerCase().substring(0, 3)
-      const times = part.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)/)
-      
-      if (times) {
-        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-        const startIdx = days.findIndex(d => d.startsWith(startDay))
-        const endIdx = days.findIndex(d => d.startsWith(endDay))
-        
-        if (startIdx >= 0 && endIdx >= 0) {
-          for (let i = startIdx; i <= endIdx; i++) {
-            const dayKey = days[i].substring(0, 3)
-            result.push({
-              day: dayMap[dayKey] || days[i],
-              open: times[1].trim(),
-              close: times[2].trim()
-            })
-          }
-        }
-      }
-    } else {
-      const dayMatch = part.match(/([A-Za-z]+)/)
-      const times = part.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)\s*-\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)/)
-      
-      if (dayMatch && times) {
-        const day = dayMatch[1].toLowerCase().substring(0, 3)
-        if (dayMap[day]) {
-          result.push({
-            day: dayMap[day],
-            open: times[1].trim(),
-            close: times[2].trim()
-          })
-        }
-      }
-    }
-  }
-  
-  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-  result.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day))
-  
-  return result.length > 0 ? result : null
-}
-
-function parseArrayHours(hours: any[]) {
-  const result: { day: string; open: string; close: string }[] = []
-  
-  for (const item of hours) {
-    if (typeof item === 'object' && item !== null) {
-      const day = item.day || item.Day || item.name || ''
-      const open = item.open || item.Open || item.start || ''
-      const close = item.close || item.Close || item.end || ''
-      
-      if (day && open && close) {
-        result.push({ day, open, close })
-      }
-    }
-  }
-  
-  return result.length > 0 ? result : null
-}
-
-function parseObjectHours(hours: any) {
-  const dayMap: Record<string, string> = {
-    monday: 'Monday',
-    tuesday: 'Tuesday',
-    wednesday: 'Wednesday',
-    thursday: 'Thursday',
-    friday: 'Friday',
-    saturday: 'Saturday',
-    sunday: 'Sunday'
-  }
-  
-  const result: { day: string; open: string; close: string }[] = []
-  
-  for (const [key, value] of Object.entries(hours)) {
-    if (value && typeof value === 'object') {
-      const open = (value as any).open || (value as any).Open || (value as any).start
-      const close = (value as any).close || (value as any).Close || (value as any).end
-      
-      if (open && close) {
-        const day = dayMap[key.toLowerCase()] || key
-        result.push({ day, open, close })
-      }
-    } else if (typeof value === 'string' && value.includes('-')) {
-      const [open, close] = value.split('-').map(s => s.trim())
-      const day = dayMap[key.toLowerCase()] || key
-      result.push({ day, open, close })
-    }
-  }
-  
-  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-  result.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day))
-  
-  return result.length > 0 ? result : null
-}
-
-// Then use it:
-const openingHours = formatOpeningHours(contractor.openingHours)
+  const latitude = contractor.latitude || null
+  const longitude = contractor.longitude || null
 
   // Calculate total reviews count
   const totalReviews = contractor.reviewCount || contractorReviews.length || 0
@@ -246,58 +90,127 @@ const openingHours = formatOpeningHours(contractor.openingHours)
       ? contractorReviews.reduce((sum, r) => sum + r.rating, 0) / contractorReviews.length
       : 0
 
+  // ✅ Parse opening hours from TEXT column
+  const parseOpeningHours = (hoursText: string | null) => {
+    if (!hoursText) return null
+    
+    // Try to parse as JSON first (in case it's stored as JSON)
+    try {
+      const parsed = JSON.parse(hoursText)
+      if (Array.isArray(parsed)) {
+        return parsed
+      }
+      if (typeof parsed === 'object') {
+        return Object.entries(parsed).map(([day, times]: [string, any]) => ({
+          day: day.charAt(0).toUpperCase() + day.slice(1),
+          open: times.open || times.Open || '',
+          close: times.close || times.Close || ''
+        }))
+      }
+    } catch (e) {
+      // Not JSON, parse as text
+    }
+    
+    // Parse as plain text format: "Monday: 8:00 AM – 5:00 PM"
+    const lines = hoursText.split('\n').filter(line => line.trim())
+    const result: { day: string; open: string; close: string }[] = []
+    
+    for (const line of lines) {
+      // Match "Day: Open – Close" or "Day: Open - Close"
+      const match = line.match(/^([^:]+):\s*([^-–]+)\s*[–-]\s*(.+)$/)
+      if (match) {
+        const [, day, open, close] = match
+        result.push({
+          day: day.trim(),
+          open: open.trim(),
+          close: close.trim()
+        })
+      } else {
+        // Fallback: just store the raw line
+        const dayMatch = line.match(/^([^:]+):/)
+        if (dayMatch) {
+          result.push({
+            day: dayMatch[1].trim(),
+            open: line.replace(/^[^:]+:\s*/, '').trim(),
+            close: ''
+          })
+        }
+      }
+    }
+    
+    return result.length > 0 ? result : null
+  }
+
+  const relatedContractors = await db
+  .select({
+    id: contractors.id,
+    name: contractors.name,
+    slug: contractors.slug,
+    city: contractors.city,
+    state: contractors.state,
+    rating: contractors.rating,
+  })
+  .from(contractors)
+  .where(
+    and(
+      eq(contractors.published, true),
+      sql`${contractors.citySlug} = ${contractor.citySlug}`,
+      sql`${contractors.stateSlug} = ${contractor.stateSlug}`,
+      sql`${contractors.id} != ${contractor.id}` // Exclude current contractor
+    )
+  )
+  .orderBy(desc(contractors.rating))
+  .limit(4)
+
+// Get nearby cities (other cities in the same state)
+const nearbyCities = await db
+  .select({
+    city: contractors.city,
+    citySlug: contractors.citySlug,
+    count: sql<number>`COUNT(*)`.as('count'),
+  })
+  .from(contractors)
+  .where(
+    and(
+      eq(contractors.published, true),
+      sql`${contractors.stateSlug} = ${contractor.stateSlug}`,
+      sql`${contractors.citySlug} != ${contractor.citySlug}` // Exclude current city
+    )
+  )
+  .groupBy(contractors.city, contractors.citySlug)
+  .orderBy(sql`count DESC`)
+  .limit(6)
+
+  const openingHours = parseOpeningHours(contractor.openingHours as string | null)
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-600 mb-8">
         <Link href="/" className="hover:text-blue-600">Home</Link>
         <span className="mx-2">/</span>
-        <Link href={`/${stateInfo!.slug}`} className="hover:text-blue-600">
-          {stateInfo!.name}
+        <Link href={`/${stateSlug}`} className="hover:text-blue-600">
+          {contractor.state || stateName}
         </Link>
         <span className="mx-2">/</span>
-        <Link href={`/${stateInfo!.slug}/${cityInfo!.slug}`} className="hover:text-blue-600">
-          {cityInfo!.name}
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-gray-800">{contractor.businessName || contractor.name}</span>
+        <span className="text-gray-800">{contractor.name}</span>
       </nav>
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content - 2 columns */}
         <div className="lg:col-span-2">
-          {/* Detailed View */}
+          {/* Contractor Card */}
           <ContractorCard
             contractor={{
               ...contractor,
-              city: cityInfo,
-              state: stateInfo,
+              city: contractor.city || '',
+              state: contractor.state || stateName,
             }}
-            stateSlug={stateInfo!.slug}
-            citySlug={cityInfo!.slug}
+            stateSlug={stateSlug}
+            citySlug=""
             variant="detailed"
           />
-
-          {/* Opening Hours - Added here for better visibility */}
-          {openingHours && openingHours.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6 mt-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-500" />
-                Opening Hours
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {openingHours.map((item) => (
-                  <div key={item.day} className="flex justify-between py-2 px-3 border-b border-gray-50 last:border-0">
-                    <span className="font-medium text-gray-700">{item.day}</span>
-                    <span className="text-gray-600 text-sm">
-                      {item.open === '24/7' ? '🕐 24/7' : `${item.open} - ${item.close}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Reviews */}
           {contractorReviews.length > 0 && (
@@ -338,13 +251,15 @@ const openingHours = formatOpeningHours(contractor.openingHours)
             </div>
           )}
 
-          <RelatedContent
-            city={cityInfo?.name || ''}
-            state={stateInfo?.name || ''}
+            {/* Related Content */}
+        <RelatedContent
+            city={contractor.city || ''}
+            state={contractor.state || stateName}
             service="Roof Leak Repair"
-            relatedContractors={[]}
-            nearbyCities={[]}
-          />
+            relatedContractors={relatedContractors}
+            nearbyCities={nearbyCities}
+            />
+
         </div>
 
         {/* Sidebar - 1 column */}
@@ -360,7 +275,7 @@ const openingHours = formatOpeningHours(contractor.openingHours)
               <div>
                 <RatingStars rating={avgRating} />
                 <div className="text-sm text-gray-500 mt-1">
-                  Based on {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
+                  Based on {totalReviews} {totalReviews === 1 ? 'Google review' : 'Google reviews'} 
                 </div>
               </div>
             </div>
@@ -378,6 +293,28 @@ const openingHours = formatOpeningHours(contractor.openingHours)
             )}
           </div>
 
+          {/* ✅ Opening Hours in Sidebar */}
+          {openingHours && openingHours.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-500" />
+                Hours of Operation
+              </h3>
+              <div className="space-y-1 text-sm">
+                {openingHours.slice(0, 7).map((item) => (
+                  <div key={item.day} className="flex justify-between py-1">
+                    <span className="text-gray-600">{item.day}</span>
+                    <span className="font-medium text-gray-800">
+                      {item.open === '24/7' || item.close === '24/7' ? '24/7' : 
+                       item.open && item.close ? `${item.open} – ${item.close}` :
+                       item.open || 'Closed'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Map */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -385,10 +322,10 @@ const openingHours = formatOpeningHours(contractor.openingHours)
               Location
             </h3>
             <Map
-              businessName={contractor.businessName || contractor.name}
+              businessName={ contractor.name}
               address={contractor.address || undefined}
-              city={cityInfo?.name || undefined}
-              state={stateInfo?.name || undefined}
+              city={contractor.city || ''}
+              state={contractor.state || stateName}
               latitude={latitude ? parseFloat(latitude as string) : undefined}
               longitude={longitude ? parseFloat(longitude as string) : undefined}
             />

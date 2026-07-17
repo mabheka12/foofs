@@ -8,7 +8,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { getDb } from '@/lib/db'
-import { states } from '@/lib/db/schema'
+import { contractors } from '@/lib/db/schema'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 async function getStates() {
   try {
     const db = getDb()
-    return await db.select().from(states).orderBy(states.name)
+    return await db.select().from(contractors).groupBy(contractors.state).orderBy(contractors.state)
   } catch {
     return []
   }
@@ -39,6 +39,7 @@ export default async function RootLayout({
   const navStates = statesList.map(s => ({
     name: s.name,
     slug: s.slug,
+    count: (s as { count?: number }).count ?? 0,
   }))
 
   return (

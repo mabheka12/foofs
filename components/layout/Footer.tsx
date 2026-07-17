@@ -1,5 +1,9 @@
 // components/layout/Footer.tsx
+import { getDb } from '@/lib/db'
+import { contractors } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import Link from 'next/link'
+
 import { 
   Mail, 
   MapPin, 
@@ -13,11 +17,33 @@ interface FooterProps {
   cities?: { name: string; slug: string; stateSlug: string }[]
 }
 
-export default function Footer({ states = [], cities = [] }: FooterProps) {
+export default async function Footer({ states = [], cities = [] }: FooterProps) {
+  const db = getDb()
   const currentYear = new Date().getFullYear()
 
-  // Top states for footer
-  const footerStates = states.slice(0, 12)
+  const statesWithCounts = await db
+    .select({
+      name: contractors.state,
+      slug: contractors.stateSlug,
+      count: sql<number>`COUNT(*)`.as('count'),
+    })
+    .from(contractors)
+    .where(eq(contractors.published, true))
+    .groupBy(contractors.state, contractors.stateSlug)
+    .orderBy(sql`count DESC`)
+    .limit(12)
+
+  // Format states
+  const footerStates = statesWithCounts
+    .filter(item => item.name)
+    .map((item) => ({
+      name: item.name || 'Unknown',
+      slug: item.slug || 'unknown',
+      count: Number(item.count) || 0,
+    }))
+
+  const totalStates = footerStates.length
+
 
   return (
     <footer className="bg-gray-900 text-gray-300">
@@ -94,7 +120,7 @@ export default function Footer({ states = [], cities = [] }: FooterProps) {
                 href={`/${state.slug}`}
                 className="text-sm hover:text-white transition py-0.5"
               >
-                {state.name}
+                {state.name} ({state.count})
               </Link>
             ))}
             {states.length > 12 && (

@@ -1,8 +1,8 @@
 // app/states/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import { getDb } from '@/lib/db'
-import { states, cities, contractors } from '@/lib/db/schema'
-import { eq, count, sql } from 'drizzle-orm'
+import { contractors } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { MapPin, Building, Users, TrendingUp } from 'lucide-react'
 
@@ -18,29 +18,37 @@ export async function generateMetadata() {
 export default async function StatesPage() {
   const db = getDb()
 
-  // Get all states with contractor counts
+  // Get all states with contractor counts from contractors table
   const statesWithCounts = await db
     .select({
-      id: states.id,
-      name: states.name,
-      slug: states.slug,
-      abbreviation: states.abbreviation,
-      contractorCount: sql<number>`COUNT(DISTINCT ${contractors.id})`.as('contractor_count'),
-      cityCount: sql<number>`COUNT(DISTINCT ${cities.id})`.as('city_count'),
+      state: contractors.state,
+      stateAbbrev: contractors.state_abbrev,
+      contractorCount: sql<number>`COUNT(*)`.as('contractor_count'),
+      cityCount: sql<number>`COUNT(DISTINCT ${contractors.city})`.as('city_count'),
     })
-    .from(states)
-    .leftJoin(cities, eq(cities.stateId, states.id))
-    .leftJoin(contractors, eq(contractors.stateId, states.id))
-    .groupBy(states.id, states.name, states.slug, states.abbreviation)
-    .orderBy(sql`contractor_count DESC`, states.name)
+    .from(contractors)
+    .where(eq(contractors.published, true))
+    .groupBy(contractors.state, contractors.state_abbrev)
+    .orderBy(sql`contractor_count DESC`)
+
+  // Format states with slugs and handle null values
+  const formattedStates = statesWithCounts
+    .filter(item => item.state) // Remove null/undefined states
+    .map((item) => ({
+      name: item.state || 'Unknown',
+      slug: item.state?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
+      abbreviation: item.stateAbbrev || '',
+      contractorCount: Number(item.contractorCount) || 0,
+      cityCount: Number(item.cityCount) || 0,
+    }))
 
   // Get top 5 states with most contractors
-  const topStates = statesWithCounts.slice(0, 5)
+  const topStates = formattedStates.slice(0, 5)
 
   // Get total stats
-  const totalContractors = statesWithCounts.reduce((sum, s) => sum + (Number(s.contractorCount) || 0), 0)
-  const totalStates = statesWithCounts.length
-  const statesWithContractors = statesWithCounts.filter(s => Number(s.contractorCount) > 0).length
+  const totalContractors = formattedStates.reduce((sum, s) => sum + s.contractorCount, 0)
+  const totalStates = formattedStates.length
+  const statesWithContractors = formattedStates.filter(s => s.contractorCount > 0).length
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -69,7 +77,7 @@ export default async function StatesPage() {
           <div className="text-sm text-gray-600">Total States</div>
         </div>
         <div className="bg-green-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-green-600">{totalContractors}</div>
+          <div className="text-3xl font-bold text-green-600">{totalContractors.toLocaleString()}</div>
           <div className="text-sm text-gray-600">Total Contractors</div>
         </div>
         <div className="bg-purple-50 rounded-lg p-4 text-center">
@@ -92,7 +100,7 @@ export default async function StatesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {topStates.map((state) => (
               <Link
-                key={state.id}
+                key={state.name}
                 href={`/${state.slug}`}
                 className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow hover:border-blue-300 group"
               >
@@ -107,18 +115,18 @@ export default async function StatesPage() {
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
                     <Building className="w-4 h-4 text-blue-500" />
-                    {Number(state.contractorCount) || 0}
+                    {state.contractorCount}
                   </span>
                   <span className="flex items-center gap-1">
                     <MapPin className="w-4 h-4 text-blue-500" />
-                    {Number(state.cityCount) || 0}
+                    {state.cityCount}
                   </span>
                 </div>
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
                   <div 
                     className="bg-blue-600 rounded-full h-1.5 transition-all duration-500"
                     style={{ 
-                      width: `${Math.min((Number(state.contractorCount) / (topStates[0]?.contractorCount || 1)) * 100, 100)}%` 
+                      width: `${Math.min((state.contractorCount / (topStates[0]?.contractorCount || 1)) * 100, 100)}%` 
                     }}
                   />
                 </div>
@@ -132,9 +140,9 @@ export default async function StatesPage() {
       <div>
         <h2 className="text-2xl font-bold mb-6">All States</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {statesWithCounts.map((state) => (
+          {formattedStates.map((state) => (
             <Link
-              key={state.id}
+              key={state.name}
               href={`/${state.slug}`}
               className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow hover:border-blue-300 group"
             >
@@ -149,17 +157,17 @@ export default async function StatesPage() {
               <div className="flex items-center gap-3 text-sm text-gray-500">
                 <span className="flex items-center gap-1">
                   <Building className="w-3.5 h-3.5" />
-                  {Number(state.contractorCount) || 0}
+                  {state.contractorCount}
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5" />
-                  {Number(state.cityCount) || 0}
+                  {state.cityCount}
                 </span>
               </div>
-              {Number(state.contractorCount) > 0 && (
+              {state.contractorCount > 0 && (
                 <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  {Number(state.contractorCount)} contractors available
+                  {state.contractorCount} contractors available
                 </div>
               )}
             </Link>

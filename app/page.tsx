@@ -1,9 +1,9 @@
 // app/page.tsx
 import { Suspense } from 'react'
 import { generateMetadata } from '@/lib/seo'
-import { db } from '@/lib/db'
-import { states, contractors } from '@/lib/db/schema'
-import { desc, sql } from 'drizzle-orm'
+import { getDb } from '@/lib/db'
+import { contractors } from '@/lib/db/schema'
+import { desc, sql, eq, and } from 'drizzle-orm'
 import Link from 'next/link'
 import { SearchFilter } from '@/components/directory/SearchFilter'
 import { ContractorGrid } from '@/components/directory/ContractorGrid'
@@ -52,8 +52,18 @@ function HomeLoading() {
   )
 }
 
-// Main home content with SearchFilter wrapped in Suspense
-function HomeContent({ featuredContractors, stateList }: { featuredContractors: any[], stateList: any[] }) {
+// Main home content
+function HomeContent({ 
+  featuredContractors, 
+  stateList,
+  totalContractors,
+  totalStates 
+}: { 
+  featuredContractors: any[], 
+  stateList: any[],
+  totalContractors: number,
+  totalStates: number 
+}) {
   return (
     <>
       <FAQSchema faqs={faqs} />
@@ -61,11 +71,18 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
       
       {/* Hero Section */}
       <section className="relative min-h-[600px] flex items-center overflow-hidden">
-        <div className="container mx-auto px-4">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+        <div className="container mx-auto px-4 relative z-10">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-white">
             Find Trusted Roof Leak Repair Contractors Near You
           </h1>
-            <div className="absolute inset-0 z-0">
+          <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl">
+            Compare top-rated contractors, read reviews, and get free estimates for roof leak repair services in your area.
+          </p>
+          <Suspense fallback={<div className="h-12 bg-white/10 rounded-lg animate-pulse"></div>}>
+            <SearchFilter />
+          </Suspense>
+        </div>
+        <div className="absolute inset-0 z-0">
           <Image
             src="/hero.png"
             alt="Professional roofing contractor repairing a roof"
@@ -74,17 +91,8 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
             priority
             sizes="100vw"
           />
-            {/* Dark Overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
-          {/* Bottom gradient overlay */}
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
-          </div>
-          <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl">
-            Compare top-rated contractors, read reviews, and get free estimates for roof leak repair services in your area.
-          </p>
-          <Suspense fallback={<div className="h-12 bg-white/10 rounded-lg animate-pulse"></div>}>
-            <SearchFilter />
-          </Suspense>
         </div>
       </section>
 
@@ -93,7 +101,7 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-3xl font-bold text-blue-600">5,000+</div>
+              <div className="text-3xl font-bold text-blue-600">{totalContractors.toLocaleString()}+</div>
               <div className="text-gray-600">Contractors Listed</div>
             </div>
             <div>
@@ -101,7 +109,7 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
               <div className="text-gray-600">Google Reviews</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-blue-600">50</div>
+              <div className="text-3xl font-bold text-blue-600">{totalStates}</div>
               <div className="text-gray-600">States Covered</div>
             </div>
             <div>
@@ -116,25 +124,40 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
       <section className="py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Featured Contractors</h2>
-          <ContractorGrid contractors={featuredContractors} />
+          {featuredContractors.length > 0 ? (
+            <ContractorGrid contractors={featuredContractors} />
+          ) : (
+            <p className="text-gray-500">No featured contractors available.</p>
+          )}
         </div>
       </section>
 
-      {/* Popular States */}
+      {/* Popular States - Now using states with contractors */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Find Contractors by State</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {stateList.slice(0, 24).map((state) => (
-              <Link
-                key={state.id}
-                href={`/${state.slug}`}
-                className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow text-center"
-              >
-                <span className="font-semibold text-gray-800">{state.name}</span>
-              </Link>
-            ))}
-          </div>
+          {stateList.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {stateList.slice(0, 24).map((state) => (
+                <Link
+                  key={state.slug || state.state}
+                  href={`/${state.slug || state.state?.toLowerCase().replace(/\s+/g, '-')}`}
+                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow text-center group"
+                >
+                  <span className="font-semibold text-gray-800 group-hover:text-blue-600 transition">
+                    {state.name || state.state}
+                  </span>
+                  {state.contractorCount && (
+                    <span className="block text-xs text-gray-500 mt-1">
+                      {state.contractorCount} contractor{state.contractorCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center">No states with contractors available.</p>
+          )}
         </div>
       </section>
 
@@ -157,22 +180,79 @@ function HomeContent({ featuredContractors, stateList }: { featuredContractors: 
 }
 
 export default async function HomePage() {
+  const db = getDb()
+
+  // Get featured contractors
   const featuredContractors = await db
-    .select()
+    .select({
+      id: contractors.id,
+      name: contractors.name,
+      slug: contractors.slug,
+      address: contractors.address,
+      phone: contractors.phone,
+      website: contractors.website,
+      rating: contractors.rating,
+      reviewCount: contractors.reviewCount,
+      city: contractors.city,
+      state: contractors.state,
+      stateAbbrev: contractors.state_abbrev,
+      description: contractors.description,
+      servicesOffered: contractors.servicesOffered,
+      openingHours: contractors.openingHours,
+      latitude: contractors.latitude,
+      longitude: contractors.longitude,
+      verified: contractors.verified,
+      emergencyService: contractors.emergencyService,
+      featured: contractors.featured,
+      published: contractors.published,
+    })
     .from(contractors)
-    .where(sql`${contractors.featured} = true AND ${contractors.published} = true`)
+    .where(
+      and(
+        eq(contractors.featured, true),
+        eq(contractors.published, true)
+      )
+    )
     .orderBy(desc(contractors.rating))
     .limit(12)
 
-  const stateList = await db
-    .select()
-    .from(states)
-    .orderBy(states.name)
+  // Get states with contractor counts (FROM contractors table directly)
+  const statesWithCounts = await db
+    .select({
+      state: contractors.state,
+      stateAbbrev: contractors.state_abbrev,
+      contractorCount: sql<number>`COUNT(*)`.as('contractor_count'),
+    })
+    .from(contractors)
+    .where(eq(contractors.published, true))
+    .groupBy(contractors.state, contractors.state_abbrev)
+    .orderBy(sql`contractor_count DESC`)
+
+  // Format state list for display
+  const stateList = statesWithCounts.map((item) => ({
+    name: item.state,
+    slug: item.state?.toLowerCase().replace(/\s+/g, '-'),
+    abbreviation: item.stateAbbrev,
+    contractorCount: Number(item.contractorCount),
+  }))
+
+  // Get total contractor count
+  const totalContractorsResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(contractors)
+    .where(eq(contractors.published, true))
+  
+  const totalContractors = totalContractorsResult[0]?.count || 0
+
+  // Total states with contractors
+  const totalStates = stateList.length
 
   return (
     <HomeContent 
       featuredContractors={featuredContractors} 
-      stateList={stateList} 
+      stateList={stateList}
+      totalContractors={totalContractors}
+      totalStates={totalStates}
     />
   )
 }

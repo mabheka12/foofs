@@ -49,7 +49,7 @@ export function ContractorCard({
           <div className="flex items-center gap-3 mt-2">
             <RatingStars rating={contractor.rating || 0} />
             <span className="text-sm text-gray-500">
-              ({contractor.reviewCount || 0} reviews)
+              ({contractor.reviewCount || 0} Google reviews)
             </span>
           </div>
 
@@ -153,14 +153,14 @@ export function ContractorCard({
       {/* Full detailed view - this will be used inside the contractor page */}
       <div className="p-6">
         <h1 className="text-3xl font-bold mb-2">
-          {contractor.businessName || contractor.name}
+          {contractor.name}
         </h1>
         
         {/* Rating */}
         <div className="flex items-center gap-4 mb-4">
           <RatingStars rating={contractor.rating || 0} />
           <span className="text-gray-600">
-            ({contractor.reviewCount || 0} reviews)
+            ({contractor.reviewCount || 0} Google reviews)
           </span>
           {contractor.verified && (
             <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1">
