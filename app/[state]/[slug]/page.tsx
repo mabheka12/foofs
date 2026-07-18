@@ -48,6 +48,7 @@ export async function generateMetadata({ params }: ContractorPageProps) {
     description: contractor.description || `Professional roof leak repair services from ${contractor.name}.`,
     keywords: [contractor.name, 'roof leak repair', 'roofing contractor'],
     canonical: `/${state}/${contractor.slug}`,
+    
   })
 }
 
