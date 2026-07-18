@@ -11,6 +11,7 @@ import {
   Award,
   Users
 } from 'lucide-react'
+import { BusinessActions } from '../business/BusinessActions'
 
 interface FooterProps {
   states?: { name: string; slug: string }[]
@@ -109,6 +110,8 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
                 </Link>
               </li>
             </ul>
+            <h3 className="text-white font-semibold mb-4">For Businesses</h3>
+            <BusinessActions variant="footer" />
           </div>
 
         <div>

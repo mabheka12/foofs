@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Search, MapPin, ChevronDown } from 'lucide-react'
+import { AuthButton } from '../auth/AuthButton'
+import { BusinessActions } from '../business/BusinessActions'
 
 interface NavbarProps {
   states?: { name: string; slug: string; count: number }[]
@@ -225,6 +227,8 @@ export default function Navbar({ states = [] }: NavbarProps) {
             >
               <Search className="w-5 h-5" />
             </Link>  
+             <AuthButton />
+             <BusinessActions variant="navbar" />
           </div>
 
           {/* Mobile Menu Button */}
@@ -299,6 +303,7 @@ export default function Navbar({ states = [] }: NavbarProps) {
             >
               Services
             </Link>
+            <BusinessActions variant="navbar" />
 
             <Link
               href="/blog"

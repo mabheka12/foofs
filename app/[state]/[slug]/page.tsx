@@ -10,6 +10,10 @@ import { ContractorCard } from '@/components/directory/ContractorCard'
 import Map from '@/components/directory/Map'
 import { Phone, MapPin, Clock, Star, Shield, FileCheck, CreditCard, Calendar, Award, ExternalLink } from 'lucide-react'
 import { RelatedContent } from '@/components/directory/RelatedContent'
+import { ReviewList } from '@/components/reviews/ReviewList'
+import { ReviewForm } from '@/components/reviews/ReviewForm'
+import { RatingSummary } from '@/components/reviews/RatingSummary'
+import { ClaimBusinessButton } from '@/components/business/ClaimBusinessButton'
 
 interface ContractorPageProps {
   params: Promise<{
@@ -250,6 +254,36 @@ const nearbyCities = await db
               </div>
             </div>
           )}
+
+          <div>
+            <RatingSummary
+              averageRating={avgRating}
+              totalReviews={totalReviews}
+              ratingDistribution={{
+                5: contractorReviews.filter(r => r.rating === 5).length,
+                4: contractorReviews.filter(r => r.rating === 4).length,
+                3: contractorReviews.filter(r => r.rating === 3).length,
+                2: contractorReviews.filter(r => r.rating === 2).length,
+                1: contractorReviews.filter(r => r.rating === 1).length,
+              }}
+              className="mt-6"
+            />
+
+            {/* Claim Business Button */}
+            <div className="mt-4">
+              <ClaimBusinessButton 
+                contractorId={contractor.id}
+                contractorName={contractor.name}
+                variant="button"
+              />
+            </div>
+
+            {/* Review List */}
+            <ReviewList contractorId={contractor.id} className="mt-6" />
+
+            {/* Review Form */}
+            <ReviewForm contractorId={contractor.id} className="mt-6" />
+          </div>
 
             {/* Related Content */}
         <RelatedContent

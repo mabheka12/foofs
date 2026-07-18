@@ -14,6 +14,16 @@ import {
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+export const adminUsers = pgTable('admin_users', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().unique(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  role: varchar('role', { length: 50 }).default('admin'),
+  permissions: jsonb('permissions').$type<string[]>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 export const contractors = pgTable('contractors', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 200 }).notNull(),
@@ -111,7 +121,82 @@ export const contractorServices = pgTable('contractor_services', {
   pk: primaryKey({ columns: [table.contractorId, table.serviceTypeId] }),
 }))
 
-// Relations
+// lib/db/schema.ts - Add these new tables
+export const businessClaims = pgTable('business_claims', {
+  id: serial('id').primaryKey(),
+  contractorId: integer('contractor_id').references(() => contractors.id, { onDelete: 'cascade' }),
+  userEmail: varchar('user_email', { length: 255 }).notNull(),
+  userName: varchar('user_name', { length: 255 }).notNull(),
+  userPhone: varchar('user_phone', { length: 50 }),
+  role: varchar('role', { length: 50 }).default('owner'),
+  proofDocuments: jsonb('proof_documents').$type<string[]>(),
+  message: text('message'),
+  status: varchar('status', { length: 50 }).default('pending'),
+  adminNotes: text('admin_notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const businessSubmissions = pgTable('business_submissions', {
+  id: serial('id').primaryKey(),
+  businessName: varchar('business_name', { length: 255 }).notNull(),
+  address: text('address'),
+  city: text('city'),
+  state: text('state'),
+  stateAbbrev: varchar('state_abbrev', { length: 2 }),
+  zipCode: varchar('zip_code', { length: 20 }),
+  phone: varchar('phone', { length: 20 }),
+  website: text('website'),
+  email: varchar('email', { length: 255 }),
+  description: text('description'),
+  servicesOffered: jsonb('services_offered').$type<string[]>(),
+  latitude: numeric('latitude', { precision: 10, scale: 7 }),
+  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  submittedByEmail: varchar('submitted_by_email', { length: 255 }).notNull(),
+  submittedByName: varchar('submitted_by_name', { length: 255 }).notNull(),
+  status: varchar('status', { length: 50 }).default('pending'),
+  adminNotes: text('admin_notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const appReviews = pgTable('app_reviews', {
+  id: serial('id').primaryKey(),
+  contractorId: integer('contractor_id').references(() => contractors.id, { onDelete: 'cascade' }),
+  userEmail: varchar('user_email', { length: 255 }).notNull(),
+  userName: varchar('user_name', { length: 255 }).notNull(),
+  rating: integer('rating').notNull(),
+  title: varchar('title', { length: 255 }),
+  content: text('content'),
+  pros: text('pros'),
+  cons: text('cons'),
+  images: jsonb('images').$type<string[]>(),
+  source: varchar('source', { length: 20 }).default('platform'),
+  verifiedPurchase: boolean('verified_purchase').default(false),
+  status: varchar('status', { length: 50 }).default('pending'),
+  helpfulCount: integer('helpful_count').default(0),
+  adminNotes: text('admin_notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+export const reviewHelpfulVotes = pgTable('review_helpful_votes', {
+  id: serial('id').primaryKey(),
+  reviewId: integer('review_id').references(() => appReviews.id, { onDelete: 'cascade' }),
+  userEmail: varchar('user_email', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueVote: uniqueIndex('unique_review_user_vote').on(table.reviewId, table.userEmail),
+}))
+
+export const claimHistory = pgTable('claim_history', {
+  id: serial('id').primaryKey(),
+  claimId: integer('claim_id').references(() => businessClaims.id, { onDelete: 'cascade' }),
+  action: varchar('action', { length: 50 }),
+  note: text('note'),
+  performedBy: varchar('performed_by', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
 
 
 
