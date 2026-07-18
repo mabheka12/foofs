@@ -83,14 +83,17 @@ function HomeContent({
           </Suspense>
         </div>
         <div className="absolute inset-0 z-0">
-          <Image
-            src="/hero.png"
-            alt="Professional roofing contractor repairing a roof"
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-          />
+         <Image
+          src="/hero.webp" // Use WebP format
+          alt="Professional roofing contractor repairing a roof"
+          fill
+          className="object-cover"
+          priority
+          sizes="100vw"
+          quality={80}
+          placeholder="blur"
+          blurDataURL="data:image/webp;base64,..."
+        />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent" />
         </div>
@@ -129,6 +132,35 @@ function HomeContent({
           ) : (
             <p className="text-gray-500">No featured contractors available.</p>
           )}
+        </div>
+      </section>
+      {/* How It Works Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <h2 className="text-3xl font-bold mb-8 text-center">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                1
+              </div>
+              <h3 className="font-semibold">Search</h3>
+              <p className="text-sm text-gray-600">Find contractors by state, city, or service</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                2
+              </div>
+              <h3 className="font-semibold">Compare</h3>
+              <p className="text-sm text-gray-600">Read reviews and compare ratings</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                3
+              </div>
+              <h3 className="font-semibold">Contact</h3>
+              <p className="text-sm text-gray-600">Get free estimates and hire the best</p>
+            </div>
+          </div>
         </div>
       </section>
 

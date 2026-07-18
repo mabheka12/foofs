@@ -23,6 +23,10 @@ export async function generateMetadata({ params }: StatePageProps) {
     return generateSeoMetadata({
       title: 'State Not Found',
       description: 'The state you are looking for could not be found.',
+       canonical: `/${state}`,
+    alternates: {
+      canonical: `/${state}`,
+    },
     })
   }
 

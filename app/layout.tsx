@@ -18,7 +18,35 @@ export const metadata: Metadata = {
     default: 'Roof Leak Repair Directory - Find Trusted Contractors Near You',
   },
   description: 'Find the best roof leak repair contractors in your area. Compare reviews, get free estimates, and find emergency roof repair services near you.',
+  keywords: ['roof leak repair', 'roofing contractors', 'emergency roof repair', 'roof maintenance', 'roof repair services'],
+  authors: [{ name: 'Roof Leak Repair Directory', url: 'https://www.findrooffixers.com' }],
+  creator: 'Roof Leak Repair Directory',
+  publisher: 'Roof Leak Repair Directory',
+  openGraph: {
+    title: 'Find Roof Leak Repair Contractors Near You',
+    description: 'Compare top-rated roof leak repair contractors. Get free estimates and find emergency service 24/7.',
+    url: 'https://roofleakrepaird.com',
+    siteName: 'Roof Leak Repair Directory',
+    locale: 'en_US',
+    type: 'website',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Roof Leak Repair Directory',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Find Roof Leak Repair Contractors Near You',
+    description: 'Compare top-rated roof leak repair contractors. Get free estimates and find emergency service 24/7.',
+    images: ['/og-image.jpg'],
+  },
 }
+
+
 
 async function getStates() {
   try {
@@ -51,7 +79,6 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href="//www.google-analytics.com" />
       </head>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
-        {/* Navbar is now properly inside the body */}
         <Navbar states={navStates} />
         <main className="flex-grow pt-16">
           {children}
