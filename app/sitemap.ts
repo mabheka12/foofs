@@ -4,7 +4,7 @@ import { contractors, blogPosts } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export default async function sitemap() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://roofleakrepaird.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://roofernet.com'
   const db = getDb()
 
   // Static pages
