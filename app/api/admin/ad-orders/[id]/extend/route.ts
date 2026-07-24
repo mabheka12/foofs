@@ -5,12 +5,14 @@ import { getDb } from '@/lib/db'
 import { adOrders, contractors } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) {
+    const { id } = await params;
     return NextResponse.redirect(new URL('/auth/login', request.url), 303)
   }
 
-  const orderId = Number(params.id)
+  const { id } = await params
+  const orderId = Number(id)
   if (!Number.isInteger(orderId)) {
     return NextResponse.redirect(new URL('/admin/ads', request.url), 303)
   }
