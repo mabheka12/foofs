@@ -1,5 +1,5 @@
 // lib/paypal.ts
-//
+//deliberate
 // Minimal PayPal REST API wrapper -- deliberately uses plain fetch rather
 // than a heavy SDK, since PayPal's own Node SDK has been in a confusing
 // state (checkout-server-sdk is legacy; the newer server-sdk is still
