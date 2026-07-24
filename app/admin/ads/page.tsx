@@ -5,6 +5,8 @@
 // belt-and-suspenders approach worth using given the middleware gap
 // flagged earlier (it currently only checks for *any* logged-in user).
 
+
+
 import { redirect } from 'next/navigation'
 import { isAdmin } from '@/lib/admin'
 import { getDb } from '@/lib/db'
