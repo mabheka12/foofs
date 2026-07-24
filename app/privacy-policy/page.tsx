@@ -136,14 +136,8 @@ export default function PrivacyPage() {
             <div className="mt-3 space-y-2">
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-blue-600" />
-                <a href="mailto:privacy@roofleakrepaird.com" className="text-blue-600 hover:underline">
-                  privacy@roofleakrepaird.com
-                </a>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-600" />
-                <a href="tel:+18005551234" className="text-blue-600 hover:underline">
-                  (800) 555-1234
+                <a href="mailto:info@roofernet.com" className="text-blue-600 hover:underline">
+                  info@roofernet.com
                 </a>
               </div>
             </div>

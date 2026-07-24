@@ -1,7 +1,7 @@
 // app/terms/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import Link from 'next/link'
-import { FileText, Shield, AlertCircle, CheckCircle, Scale, Users, Building, Phone,Mail} from 'lucide-react'
+import { FileText, Shield, AlertCircle, CheckCircle, Scale, Users, Building, Mail} from 'lucide-react'
 
 export const metadata = generateSeoMetadata({
   title: 'Terms of Service - Roof Leak Repair Directory',
@@ -59,7 +59,6 @@ export default function TermsPage() {
               User Accounts
             </h2>
             <ul className="list-disc list-inside space-y-2 text-gray-600 ml-4">
-              <li>You must be 18 years or older to use our services</li>
               <li>You are responsible for maintaining the confidentiality of your account</li>
               <li>You agree to provide accurate and complete information</li>
               <li>You are responsible for all activities under your account</li>
@@ -156,13 +155,7 @@ export default function TermsPage() {
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-blue-600" />
                 <a href="mailto:legal@roofleakrepaird.com" className="text-blue-600 hover:underline">
-                  legal@roofleakrepaird.com
-                </a>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-600" />
-                <a href="tel:+18005551234" className="text-blue-600 hover:underline">
-                  (800) 555-1234
+                  info@roofernet.com
                 </a>
               </div>
             </div>

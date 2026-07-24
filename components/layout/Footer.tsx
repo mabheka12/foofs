@@ -183,7 +183,7 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
               &copy; {currentYear} roofnet.com. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/privacy" className="hover:text-white transition">
+              <Link href="/privacy-policy" className="hover:text-white transition">
                 Privacy Policy
               </Link>
               <Link href="/terms" className="hover:text-white transition">
