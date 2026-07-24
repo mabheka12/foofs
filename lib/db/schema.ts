@@ -13,6 +13,7 @@ import {
   primaryKey
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
 
 export const adminUsers = pgTable('admin_users', {
   id: serial('id').primaryKey(),
@@ -55,11 +56,12 @@ export const contractors = pgTable('contractors', {
   metaTitle: varchar('meta_title', { length: 160 }),
   metaDescription: text('meta_description'),
   featured: boolean('featured').default(false),
+  featuredScope: varchar('featured_scope', { length: 10 }),
   verified: boolean('verified').default(false),
   published: boolean('published').default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-   // NEW COLUMNS for opening hours
+  featuredUntil: timestamp('featured_until'),
   openingHours: jsonb('opening_hours').$type<{
     monday: { open: string; close: string } | null
     tuesday: { open: string; close: string } | null
@@ -72,6 +74,18 @@ export const contractors = pgTable('contractors', {
 }, (table) => ({
   uniqueStateCitySlug: uniqueIndex('unique_state_city_slug').on(table.state, table.city, table.slug),
 }))
+
+export const contactSubmissions = pgTable('contact_submissions', {
+   id: serial('id').primaryKey(),
+   name: text('name').notNull(),
+   email: text('email').notNull(),
+   subject: varchar('subject', { length: 50 }).notNull(),
+   message: text('message').notNull(),
+   ipAddress: text('ip_address'),
+   userAgent: text('user_agent'),
+   status: varchar('status', { length: 20 }).notNull().default('new'),
+   createdAt: timestamp('created_at').notNull().defaultNow(),
+ })
 
 export const reviews = pgTable('reviews', {
   id: serial('id').primaryKey(),
@@ -199,7 +213,6 @@ export const claimHistory = pgTable('claim_history', {
 })
 
 
-
 export const contractorsRelations = relations(contractors, ({ one, many }) => ({
   
   reviews: many(reviews),
@@ -207,3 +220,20 @@ export const contractorsRelations = relations(contractors, ({ one, many }) => ({
     relationName: 'contractorServices',
   }),
 }))
+
+export const adOrders = pgTable('ad_orders', {
+   id: serial('id').primaryKey(),
+   contractorId: integer('contractor_id').notNull(),
+   paystackReference: text('paystack_reference').notNull().unique(),
+   customerEmail: text('customer_email'),
+   scope: varchar('scope', { length: 10 }).notNull(),
+   stateAbbrev: varchar('state_abbrev', { length: 2 }),
+   durationMonths: integer('duration_months').notNull(),
+   amountUsdCents: integer('amount_usd_cents').notNull(),
+   amountZarCents: integer('amount_zar_cents').notNull(),
+   usdToZarRate: numeric('usd_to_zar_rate', { precision: 10, scale: 4 }).notNull(),
+   status: varchar('status', { length: 20 }).notNull().default('pending'),
+   featuredUntil: timestamp('featured_until'),
+   createdAt: timestamp('created_at').notNull().defaultNow(),
+   paidAt: timestamp('paid_at'),
+ })

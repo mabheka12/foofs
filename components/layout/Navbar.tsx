@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Search, MapPin, ChevronDown } from 'lucide-react'
 import { AuthButton } from '../auth/AuthButton'
@@ -99,15 +100,16 @@ export default function Navbar({ states = [] }: NavbarProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group" aria-label="Home">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg group-hover:bg-blue-700 transition">
-              RR
+            <div className="w-100 h-100  rounded-lg flex items-center justify-center text-white font-bold text-lg group-hover:bg-blue-700 transition">
+              <Image
+                src='/roofer-logo.webp'
+                alt="Logo"
+                width={100}
+                height={100}
+                priority
+              />
             </div>
-            <div>
-              <span className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition">
-                Roof
-              </span>
-              <span className="text-sm text-gray-500 block -mt-1">Repair.com</span>
-            </div>
+           
           </Link>
 
           {/* Desktop Navigation */}

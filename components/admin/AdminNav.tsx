@@ -3,7 +3,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Building, Star, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Building, Star, Megaphone, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -17,6 +17,7 @@ export function AdminNav() {
     { href: '/admin/claims', label: 'Claims', icon: Users },
     { href: '/admin/submissions', label: 'Submissions', icon: Building },
     { href: '/admin/reviews', label: 'Reviews', icon: Star },
+    { href: '/admin/ads', label: 'Ads', icon: Megaphone },
   ]
 
   const handleLogout = async () => {

@@ -7,6 +7,7 @@ import { desc, sql, eq, and } from 'drizzle-orm'
 import Link from 'next/link'
 import { SearchFilter } from '@/components/directory/SearchFilter'
 import { ContractorGrid } from '@/components/directory/ContractorGrid'
+import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
 import { FAQSchema } from '@/components/seo/FAQSchema'
 import Image from 'next/image'
 
@@ -53,13 +54,11 @@ function HomeLoading() {
 }
 
 // Main home content
-function HomeContent({ 
-  featuredContractors, 
+function HomeContent({  
   stateList,
   totalContractors,
   totalStates 
-}: { 
-  featuredContractors: any[], 
+}: {  
   stateList: any[],
   totalContractors: number,
   totalStates: number 
@@ -108,10 +107,6 @@ function HomeContent({
               <div className="text-gray-600">Contractors Listed</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-blue-600">15,000+</div>
-              <div className="text-gray-600">Google Reviews</div>
-            </div>
-            <div>
               <div className="text-3xl font-bold text-blue-600">{totalStates}</div>
               <div className="text-gray-600">States Covered</div>
             </div>
@@ -123,17 +118,9 @@ function HomeContent({
         </div>
       </section>
 
-      {/* Featured Contractors */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8">Featured Contractors</h2>
-          {featuredContractors.length > 0 ? (
-            <ContractorGrid contractors={featuredContractors} />
-          ) : (
-            <p className="text-gray-500">No featured contractors available.</p>
-          )}
-        </div>
-      </section>
+      <FeaturedContractors />
+
+ 
       {/* How It Works Section */}
       <section className="py-16">
         <div className="container mx-auto px-4 max-w-4xl">
@@ -281,7 +268,6 @@ export default async function HomePage() {
 
   return (
     <HomeContent 
-      featuredContractors={featuredContractors} 
       stateList={stateList}
       totalContractors={totalContractors}
       totalStates={totalStates}

@@ -55,11 +55,11 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                FRF
+                RN
               </div>
               <div>
-                <span className="text-xl font-bold text-white">Find</span>
-                <span className="text-xl text-gray-400 block -mt-1">RoofFixers.com</span>
+                <span className="text-xl font-bold text-white">Roofer</span>
+                <span className="text-xl text-gray-400 block -mt-1">Net.com</span>
               </div>
             </div>
             <p className="text-sm text-gray-400 mb-4">
@@ -146,8 +146,8 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
                 <Mail className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-white">Email</div>
-                  <a href="mailto:info@findrooffixers.com" className="hover:text-white transition">
-                    info@findrooffixers.com
+                  <a href="mailto:info@roofernet.com" className="hover:text-white transition">
+                    info@roofernet.com
                   </a>
                 </div>
               </li>
@@ -169,11 +169,7 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
               </div>
               <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
                 <Award className="w-4 h-4 text-yellow-400" />
-                <span>5,000+ Listed</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
-                <Users className="w-4 h-4 text-purple-400" />
-                <span>15,000+ Google Reviews</span>
+                <span>9,000+ Listed</span>
               </div>
             </div>
           </div>
@@ -184,7 +180,7 @@ export default async function Footer({ states = [], cities = [] }: FooterProps) 
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
             <p>
-              &copy; {currentYear} FindRoofFixers.com. All rights reserved.
+              &copy; {currentYear} roofnet.com. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
               <Link href="/privacy" className="hover:text-white transition">

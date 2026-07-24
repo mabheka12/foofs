@@ -79,7 +79,7 @@ export function BusinessActions({
               href="/auth/register"
               className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
             >
-              Get Started
+              For Contractors
             </Link>
           </>
         )}
@@ -144,7 +144,7 @@ export function BusinessActions({
               href="/auth/register"
               className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 transition font-medium"
             >
-              Get Started
+              For Contractors
             </Link>
           </>
         )}
