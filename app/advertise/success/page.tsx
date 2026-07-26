@@ -13,9 +13,10 @@ import { activateAdOrder } from '@/lib/activateAdOrder'
 export default async function AdvertiseSuccessPage({
   searchParams,
 }: {
-  searchParams: { reference?: string; trxref?: string }
+  searchParams: Promise<{ reference?: string; trxref?: string }>
 }) {
-  const reference = searchParams.reference || searchParams.trxref
+  const params = await searchParams
+  const reference = params.reference || params.trxref
   const result = reference ? await activateAdOrder(reference) : { ok: false as const, reason: 'missing_reference' }
 
   return (

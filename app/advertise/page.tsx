@@ -10,11 +10,13 @@ export const metadata = generateSeoMetadata({
   canonical: '/advertise',
 })
 
-export default function AdvertisePage({
+export default async function AdvertisePage({
   searchParams,
 }: {
-  searchParams: { status?: string }
+  searchParams: Promise<{ status?: string }>
 }) {
+  const params = await searchParams
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <nav className="text-sm text-gray-600 mb-8">
@@ -23,7 +25,7 @@ export default function AdvertisePage({
         <span className="text-gray-800">Advertise</span>
       </nav>
 
-      {searchParams.status === 'cancelled' && (
+      {params.status === 'cancelled' && (
         <div className="mb-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3">
           Checkout was cancelled — no charge was made. You can pick up right where you left off below.
         </div>
@@ -56,7 +58,7 @@ export default function AdvertisePage({
       <AdvertiseForm />
 
       <p className="text-xs text-gray-400 text-center mt-6">
-        Payments are processed securely by Paypal. Cards are never stored on our servers.
+        Payments are processed securely by Paystack. Cards are never stored on our servers.
       </p>
     </div>
   )

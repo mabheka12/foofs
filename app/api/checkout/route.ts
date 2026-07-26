@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
   const usdToZarRate = await getUsdToZarRate()
   const amountZarCents = Math.round((amountUsdCents / 100) * usdToZarRate * 100)
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+  // Strip a trailing slash if NEXT_PUBLIC_SITE_URL has one -- otherwise
+  // the callback URL below becomes ".../success//advertise/success" style
+  // double-slash, which some hosting layers "helpfully" normalize by
+  // redirecting to the single-slash version and dropping the query string
+  // (i.e. the reference Paystack appended) in the process.
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`).replace(/\/+$/, '')
   // Our own reference, generated up front, so we can record the pending
   // order before redirecting and match it back up on return/webhook.
   const reference = `ad_${contractor.id}_${Date.now()}`

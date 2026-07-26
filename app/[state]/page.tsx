@@ -6,6 +6,7 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { MapPin, Phone, Star, Building, Clock, CheckCircle, X } from 'lucide-react'
+import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
 
 interface StatePageProps {
   params: Promise<{
@@ -179,6 +180,19 @@ export default async function StatePage({ params, searchParams }: StatePageProps
           )}
         </p>
       </div>
+
+      {/*
+        FIX: stateAbbrev was previously missing here, which made this call
+        take the NATIONAL branch of getFeaturedContractors' scope filter
+        instead of the state branch -- so a state-scoped purchase (like
+        contractor #6, featured_scope='state') could never match and never
+        rendered, even though the underlying data was completely correct.
+      */}
+      <FeaturedContractors
+        stateAbbrev={contractorsList[0]?.stateAbbrev ?? undefined}
+        title={`Featured in ${stateName}`}
+        limit={6}
+      />
 
       {/* Stats Section */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

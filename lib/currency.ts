@@ -15,7 +15,13 @@ export async function getUsdToZarRate(): Promise<number> {
     return cachedRate
   }
   try {
-    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=ZAR', { cache: 'no-store' })
+    // 3s timeout -- if this host is unreachable (DNS blocked, offline dev
+    // environment, etc.) fail fast into the cached/fallback rate instead of
+    // hanging for the platform's full default timeout on every checkout.
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=ZAR', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
+    })
     const data = await res.json()
     const rate = data?.rates?.ZAR
     if (!rate) throw new Error('No rate')

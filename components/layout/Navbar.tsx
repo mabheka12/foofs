@@ -76,9 +76,18 @@ export default function Navbar({ states = [] }: NavbarProps) {
       try {
         const response = await fetch('/api/states')
         const data = await response.json()
-        setTopStates(data.slice(0, 8))
+        // /api/states can legitimately fail (DB connection issues, etc.) and
+        // return { error: '...' } instead of an array -- guard against that
+        // rather than crashing on .slice() when it happens.
+        if (response.ok && Array.isArray(data)) {
+          setTopStates(data.slice(0, 8))
+        } else {
+          console.error('Error fetching states:', data?.error || 'Unexpected response shape')
+          setTopStates([])
+        }
       } catch (error) {
         console.error('Error fetching states:', error)
+        setTopStates([])
       } finally {
         setIsLoading(false)
       }

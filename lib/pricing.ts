@@ -1,17 +1,12 @@
 // lib/pricing.ts
-//
-// Single source of truth for ad pricing. The checkout route recomputes the
-// price from this file server-side using only (scope, durationMonths) --
-// it NEVER trusts a price sent from the client. Adjust these numbers to
-// whatever your market will bear; nothing else needs to change.
 
 export type Scope = 'national' | 'state'
 export type Duration = 1 | 3 | 12
 
 export const PRICING: Record<Scope, Record<Duration, number>> = {
   // cents
-  national: { 1: 19900, 3: 49900, 12: 149900 }, // $199 / $166mo / $125mo
-  state: { 1: 7900, 3: 19900, 12: 59900 },       // $79 / $66mo / $50mo
+  national: { 1: 9900, 3: 18699, 12: 74800 }, // $199 / $166mo / $125mo
+  state: { 1: 4900, 3: 12200, 12: 36999 },       // $79 / $66mo / $50mo
 }
 
 export const SCOPE_LABEL: Record<Scope, string> = {
