@@ -44,7 +44,7 @@ function ContractorCard({ contractor }: { contractor: Awaited<ReturnType<typeof 
 
   return (
     <Link
-      href={`/${contractor.state?.toLowerCase().replace(/\s+/g, '-')}/${contractor.city?.toLowerCase().replace(/\s+/g, '-')}/${contractor.slug}`}
+      href={`/${contractor.state?.toLowerCase().replace(/\s+/g, '-')}/${contractor.slug}`}
       className="relative block bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6"
     >
       {contractor.isSponsored && (
