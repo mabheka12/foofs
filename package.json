@@ -53,6 +53,7 @@
     "react-phone-number-input": "^3.4.5",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
+    "resend": "^6.18.1",
     "schema-dts": "^1.1.2",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",

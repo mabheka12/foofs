@@ -10,6 +10,8 @@ import { ContractorGrid } from '@/components/directory/ContractorGrid'
 import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
 import { FAQSchema } from '@/components/seo/FAQSchema'
 import Image from 'next/image'
+import { MAX_FEATURED_NATIONAL } from '@/lib/queries/getFeaturedContractors'
+import AdvertiseCta from '@/components/business/AdvertiseCta'
 
 export const metadata = generateMetadata({
   title: 'Find Roof Leak Repair Contractors Near You',
@@ -118,7 +120,13 @@ function HomeContent({
         </div>
       </section>
 
-      <FeaturedContractors />
+        <FeaturedContractors 
+        limit={MAX_FEATURED_NATIONAL} 
+        title="⭐ Featured Contractors"
+        showAdvertiseCta={true}
+      />
+
+      <AdvertiseCta />
 
  
       {/* How It Works Section */}
@@ -178,6 +186,13 @@ function HomeContent({
             <p className="text-gray-500 text-center">No states with contractors available.</p>
           )}
         </div>
+        <Link
+                            href="/states"
+                            className="block px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100 mt-1 pt-2"
+                            role="menuitem"
+                          >
+                            View All States →
+                          </Link>
       </section>
 
       {/* FAQ Section */}

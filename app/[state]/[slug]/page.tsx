@@ -14,6 +14,7 @@ import { ReviewList } from '@/components/reviews/ReviewList'
 import { ReviewForm } from '@/components/reviews/ReviewForm'
 import { RatingSummary } from '@/components/reviews/RatingSummary'
 import { ClaimBusinessButton } from '@/components/business/ClaimBusinessButton'
+import  AdvertiseCta  from '@/components/business/AdvertiseCta'
 
 interface ContractorPageProps {
   params: Promise<{
@@ -48,7 +49,6 @@ export async function generateMetadata({ params }: ContractorPageProps) {
     description: contractor.description || `Professional roof leak repair services from ${contractor.name}.`,
     keywords: [contractor.name, 'roof leak repair', 'roofing contractor'],
     canonical: `/${state}/${contractor.slug}`,
-    
   })
 }
 
@@ -95,11 +95,11 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
       ? contractorReviews.reduce((sum, r) => sum + r.rating, 0) / contractorReviews.length
       : 0
 
-  // ✅ Parse opening hours from TEXT column
+  // Parse opening hours from TEXT column
   const parseOpeningHours = (hoursText: string | null) => {
     if (!hoursText) return null
     
-    // Try to parse as JSON first (in case it's stored as JSON)
+    // Try to parse as JSON first
     try {
       const parsed = JSON.parse(hoursText)
       if (Array.isArray(parsed)) {
@@ -121,7 +121,6 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
     const result: { day: string; open: string; close: string }[] = []
     
     for (const line of lines) {
-      // Match "Day: Open – Close" or "Day: Open - Close"
       const match = line.match(/^([^:]+):\s*([^-–]+)\s*[–-]\s*(.+)$/)
       if (match) {
         const [, day, open, close] = match
@@ -131,7 +130,6 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
           close: close.trim()
         })
       } else {
-        // Fallback: just store the raw line
         const dayMatch = line.match(/^([^:]+):/)
         if (dayMatch) {
           result.push({
@@ -146,45 +144,53 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
     return result.length > 0 ? result : null
   }
 
+  // ✅ FIXED: Related contractors - same city and state
   const relatedContractors = await db
-  .select({
-    id: contractors.id,
-    name: contractors.name,
-    slug: contractors.slug,
-    city: contractors.city,
-    state: contractors.state,
-    rating: contractors.rating,
-  })
-  .from(contractors)
-  .where(
-    and(
-      eq(contractors.published, true),
-      sql`${contractors.citySlug} = ${contractor.citySlug}`,
-      sql`${contractors.stateSlug} = ${contractor.stateSlug}`,
-      sql`${contractors.id} != ${contractor.id}` // Exclude current contractor
+    .select({
+      id: contractors.id,
+      name: contractors.name,
+      slug: contractors.slug,
+      city: contractors.city,
+      state: contractors.state,
+      rating: contractors.rating,
+      reviewCount: contractors.reviewCount,
+    })
+    .from(contractors)
+    .where(
+      and(
+        eq(contractors.published, true),
+        eq(contractors.city, contractor.city || ''),
+        eq(contractors.state, contractor.state || ''),
+        sql`${contractors.id} != ${contractor.id}`
+      )
     )
-  )
-  .orderBy(desc(contractors.rating))
-  .limit(4)
+    .orderBy(desc(contractors.rating))
+    .limit(4)
 
-// Get nearby cities (other cities in the same state)
-const nearbyCities = await db
-  .select({
-    city: contractors.city,
-    citySlug: contractors.citySlug,
-    count: sql<number>`COUNT(*)`.as('count'),
-  })
-  .from(contractors)
-  .where(
-    and(
-      eq(contractors.published, true),
-      sql`${contractors.stateSlug} = ${contractor.stateSlug}`,
-      sql`${contractors.citySlug} != ${contractor.citySlug}` // Exclude current city
+  // ✅ FIXED: Nearby cities - get distinct cities in the same state
+  const nearbyCitiesResult = await db
+    .select({
+      city: contractors.city,
+      count: sql<number>`COUNT(*)`.as('count'),
+    })
+    .from(contractors)
+    .where(
+      and(
+        eq(contractors.published, true),
+        eq(contractors.state, contractor.state || ''),
+        sql`${contractors.city} != ${contractor.city || ''}`,
+        sql`${contractors.city} IS NOT NULL`
+      )
     )
-  )
-  .groupBy(contractors.city, contractors.citySlug)
-  .orderBy(sql`count DESC`)
-  .limit(6)
+    .groupBy(contractors.city)
+    .orderBy(sql`count DESC`)
+    .limit(6)
+
+  const nearbyCities = nearbyCitiesResult.map(row => ({
+    city: row.city || '',
+    citySlug: row.city ? row.city.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '',
+    count: Number(row.count),
+  }))
 
   const openingHours = parseOpeningHours(contractor.openingHours as string | null)
 
@@ -213,7 +219,7 @@ const nearbyCities = await db
               state: contractor.state || stateName,
             }}
             stateSlug={stateSlug}
-            citySlug=""
+            citySlug={contractor.city ? contractor.city.toLowerCase().replace(/[^a-z0-9]+/g, '-') : ''}
             variant="detailed"
           />
 
@@ -286,15 +292,14 @@ const nearbyCities = await db
             <ReviewForm contractorId={contractor.id} className="mt-6" />
           </div>
 
-            {/* Related Content */}
-        <RelatedContent
+          {/* Related Content */}
+          <RelatedContent
             city={contractor.city || ''}
             state={contractor.state || stateName}
             service="Roof Leak Repair"
             relatedContractors={relatedContractors}
             nearbyCities={nearbyCities}
-            />
-
+          />
         </div>
 
         {/* Sidebar - 1 column */}
@@ -328,7 +333,9 @@ const nearbyCities = await db
             )}
           </div>
 
-          {/* ✅ Opening Hours in Sidebar */}
+          <AdvertiseCta />
+
+          {/* Opening Hours in Sidebar */}
           {openingHours && openingHours.length > 0 && (
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -337,7 +344,7 @@ const nearbyCities = await db
               </h3>
               <div className="space-y-1 text-sm">
                 {openingHours.slice(0, 7).map((item) => (
-                  <div key={item.day} className="flex justify-between py-1">
+                  <div key={item.day} className="flex justify-between py-1 border-b border-gray-50 last:border-0">
                     <span className="text-gray-600">{item.day}</span>
                     <span className="font-medium text-gray-800">
                       {item.open === '24/7' || item.close === '24/7' ? '24/7' : 
@@ -357,7 +364,7 @@ const nearbyCities = await db
               Location
             </h3>
             <Map
-              businessName={ contractor.name}
+              businessName={contractor.name}
               address={contractor.address || undefined}
               city={contractor.city || ''}
               state={contractor.state || stateName}

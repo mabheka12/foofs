@@ -1,106 +1,127 @@
 // lib/notifications/email.ts
+import { Resend } from 'resend'
+import { EmailOptions, ClaimData, ReviewData, ContactData } from './types'
+import { EmailTemplates } from './templates'
 
-interface EmailOptions {
-  to: string
-  subject: string
-  html: string
-}
+// Initialize Resend with API key
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Simple email notification - you can replace with SendGrid, Resend, etc.
-export async function sendEmail({ to, subject, html }: EmailOptions) {
-  // For now, just log the email
-  console.log(`📧 Email to: ${to}`)
-  console.log(`Subject: ${subject}`)
-  console.log(`HTML: ${html}`)
-  
-  // In production, use a service like:
-  // - Resend (resend.com)
-  // - SendGrid
-  // - AWS SES
-  // - Nodemailer
-  
-  // Example with Resend:
-  // const resend = new Resend(process.env.RESEND_API_KEY)
-  // await resend.emails.send({
-  //   from: 'noreply@roofleakrepaird.com',
-  //   to,
-  //   subject,
-  //   html,
-  // })
-}
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@roofleakrepaird.com'
+const ADMIN_EMAIL = process.env.RESEND_TO_EMAIL || 'admin@roofleakrepaird.com'
 
-export function getClaimApprovedEmail(claim: any) {
-  return {
-    subject: '🎉 Your Business Claim Has Been Approved!',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Congratulations! 🎉</h2>
-        <p>Your claim for <strong>${claim.contractorName}</strong> has been approved.</p>
-        <p>You can now manage your business listing and respond to reviews.</p>
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard" 
-           style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px;">
-          Go to Dashboard
-        </a>
-      </div>
-    `
+export async function sendEmail({ to, subject, html, from, replyTo }: EmailOptions) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️ RESEND_API_KEY not set. Email not sent.')
+    console.log(`📧 Would have sent email to: ${to}`)
+    console.log(`Subject: ${subject}`)
+    return { success: false, error: 'RESEND_API_KEY not configured' }
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: from || FROM_EMAIL,
+      to: [to],
+      subject,
+      html,
+      replyTo: replyTo || undefined,
+    })
+
+    if (error) {
+      console.error('❌ Email send error:', error)
+      return { success: false, error: error.message }
+    }
+
+    console.log(`✅ Email sent to ${to} with ID: ${data?.id}`)
+    return { success: true, data }
+  } catch (error) {
+    console.error('❌ Email service error:', error)
+    return { success: false, error: (error as Error).message }
   }
 }
 
-export function getClaimRejectedEmail(claim: any) {
-  return {
-    subject: 'Business Claim Update',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Claim Status Update</h2>
-        <p>Your claim for <strong>${claim.contractorName}</strong> has been reviewed.</p>
-        <p>Status: <strong style="color: #dc2626;">Rejected</strong></p>
-        ${claim.adminNotes ? `<p><strong>Admin Notes:</strong> ${claim.adminNotes}</p>` : ''}
-        <p>If you have questions, please contact support.</p>
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL}/contact" 
-           style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px;">
-          Contact Support
-        </a>
-      </div>
-    `
-  }
+// Send claim approved notification
+export async function sendClaimApprovedEmail(claim: ClaimData) {
+  // Ensure id is a string for the email template
+  const template = EmailTemplates.claimApproved({ ...claim, id: String((claim as any).id) })
+  return sendEmail({
+    to: (claim as any).email || ADMIN_EMAIL,
+    subject: template.subject,
+    html: template.html,
+  })
 }
 
-export function getReviewApprovedEmail(review: any) {
-  return {
-    subject: 'Your Review Has Been Published',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Review Published ✅</h2>
-        <p>Your review for <strong>${review.contractorName}</strong> has been approved and is now live.</p>
-        <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
-          <p style="margin: 0;"><strong>Rating:</strong> ${'⭐'.repeat(review.rating)}</p>
-          <p style="margin: 8px 0 0 0;"><strong>${review.title}</strong></p>
-          <p style="margin: 8px 0 0 0; color: #4b5563;">${review.content}</p>
-        </div>
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL}/contractors/${review.contractorSlug}" 
-           style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px;">
-          View Your Review
-        </a>
-      </div>
-    `
-  }
+// Send claim rejected notification
+export async function sendClaimRejectedEmail(claim: ClaimData) {
+  // Ensure id is a string for the email template
+  const template = EmailTemplates.claimRejected({ ...claim, id: String((claim as any).id) })
+  return sendEmail({
+    to: (claim as any).email || ADMIN_EMAIL,
+    subject: template.subject,
+    html: template.html,
+  })
 }
 
-export function getReviewRejectedEmail(review: any) {
+// Send review approved notification
+export async function sendReviewApprovedEmail(review: ReviewData, userEmail: string) {
+  const template = EmailTemplates.reviewApproved(review)
+  return sendEmail({
+    to: userEmail,
+    subject: template.subject,
+    html: template.html,
+  })
+}
+
+// Send review rejected notification
+export async function sendReviewRejectedEmail(review: ReviewData, userEmail: string) {
+  const template = EmailTemplates.reviewRejected(review)
+  return sendEmail({
+    to: userEmail,
+    subject: template.subject,
+    html: template.html,
+  })
+}
+
+// Send contact confirmation to user
+export async function sendContactConfirmationEmail(data: ContactData) {
+  const template = EmailTemplates.contactConfirmation(data)
+  return sendEmail({
+    to: data.email,
+    subject: template.subject,
+    html: template.html,
+    replyTo: ADMIN_EMAIL,
+  })
+}
+
+// Send contact notification to admin
+export async function sendContactNotificationEmail(data: ContactData) {
+  const template = EmailTemplates.contactNotification(data)
+  return sendEmail({
+    to: ADMIN_EMAIL,
+    subject: template.subject,
+    html: template.html,
+    replyTo: data.email,
+  })
+}
+
+// Send welcome email
+export async function sendWelcomeEmail(name: string, email: string) {
+  const template = EmailTemplates.welcome({ name, email })
+  return sendEmail({
+    to: email,
+    subject: template.subject,
+    html: template.html,
+  })
+}
+
+// Send both contact emails (to user and admin)
+export async function sendContactEmails(data: ContactData) {
+  const [userResult, adminResult] = await Promise.all([
+    sendContactConfirmationEmail(data),
+    sendContactNotificationEmail(data),
+  ])
+
   return {
-    subject: 'Review Update',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2>Review Update</h2>
-        <p>Your review for <strong>${review.contractorName}</strong> has been reviewed.</p>
-        <p>Status: <strong style="color: #dc2626;">Rejected</strong></p>
-        ${review.adminNotes ? `<p><strong>Admin Notes:</strong> ${review.adminNotes}</p>` : ''}
-        <p>Please ensure your review follows our community guidelines.</p>
-        <a href="${process.env.NEXT_PUBLIC_SITE_URL}/contact" 
-           style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px;">
-          Contact Support
-        </a>
-      </div>
-    `
+    user: userResult,
+    admin: adminResult,
   }
 }

@@ -1,12 +1,11 @@
-
+// components/directory/FeaturedContractors.tsx
 import Link from 'next/link'
-import { getFeaturedContractors } from '@/lib/queries/getFeaturedContractors'
+import { getFeaturedContractors, getRemainingFeaturedSlots, MAX_FEATURED_NATIONAL, MAX_FEATURED_PER_STATE } from '@/lib/queries/getFeaturedContractors'
 
 type Props = {
   limit?: number
   stateAbbrev?: string
   title?: string
-  /** Show a small "want to be featured?" card in the last slot. */
   showAdvertiseCta?: boolean
 }
 
@@ -24,15 +23,42 @@ export async function FeaturedContractors({
   // apologetic empty state.
   if (contractors.length === 0) return null
 
+  // Check if there's capacity for more featured listings
+  const remainingSlots = await getRemainingFeaturedSlots(stateAbbrev)
+  const showCta = showAdvertiseCta && remainingSlots > 0
+
+  // Calculate how many contractor cards to show (leave space for CTA if needed)
+  const showCtaInGrid = showCta && contractors.length < limit
+  const displayLimit = showCtaInGrid ? limit - 1 : limit
+  const displayContractors = contractors.slice(0, displayLimit)
+
+  const maxAllowed = stateAbbrev ? MAX_FEATURED_PER_STATE : MAX_FEATURED_NATIONAL
+  const currentCount = contractors.filter(c => c.isSponsored).length
+
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold mb-8">{title}</h2>
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl font-bold">{title}</h2>
+          <div className="text-sm text-gray-500">
+            {currentCount > 0 && (
+              <span>
+                {currentCount} featured{stateAbbrev ? ` in ${stateAbbrev.toUpperCase()}` : ''}
+                {remainingSlots > 0 && ` · ${remainingSlots} slots available`}
+              </span>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {contractors.map((c) => (
-            <ContractorCard key={c.id} contractor={c} />
+          {displayContractors.map((contractor) => (
+            <ContractorCard key={contractor.id} contractor={contractor} />
           ))}
-          {showAdvertiseCta && <AdvertiseCta />}
+
+          {/* Show "Advertise Here" CTA in the last slot if there's capacity */}
+          {showCtaInGrid && (
+            <AdvertiseCta stateAbbrev={stateAbbrev} remainingSlots={remainingSlots} maxAllowed={maxAllowed} />
+          )}
         </div>
       </div>
     </section>
@@ -76,15 +102,31 @@ function ContractorCard({ contractor }: { contractor: Awaited<ReturnType<typeof 
   )
 }
 
-function AdvertiseCta() {
+function AdvertiseCta({ stateAbbrev, remainingSlots, maxAllowed }: { 
+  stateAbbrev?: string; 
+  remainingSlots: number;
+  maxAllowed: number;
+}) {
+  const locationText = stateAbbrev 
+    ? `in ${stateAbbrev.toUpperCase()}` 
+    : 'nationally'
+
   return (
     <Link
       href="/advertise"
-      className="flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-lg p-6 hover:border-blue-300 hover:bg-blue-50/40 transition-colors"
+      className="flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-lg p-6 hover:border-blue-300 hover:bg-blue-50/40 transition-colors min-h-[200px]"
     >
-      <span className="font-semibold text-gray-700">Own a roofing business?</span>
-      <span className="text-sm text-gray-500 mt-1">Get featured here</span>
-      <span className="text-sm text-blue-600 font-medium mt-3">Learn more →</span>
+      <span className="text-3xl mb-2">📢</span>
+      <span className="font-semibold text-gray-700">Advertise Here</span>
+      <span className="text-sm text-gray-500 mt-1">
+        {remainingSlots} {remainingSlots === 1 ? 'slot' : 'slots'} available {locationText}
+      </span>
+      <span className="text-xs text-gray-400 mt-2">
+        Max {maxAllowed} featured per {stateAbbrev ? 'state' : 'national'}
+      </span>
+      <span className="text-sm text-blue-600 font-medium mt-3 hover:underline">
+        Learn more →
+      </span>
     </Link>
   )
 }

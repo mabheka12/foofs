@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { MapPin, Phone, Star, Building, Clock, CheckCircle, X } from 'lucide-react'
 import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
+import AdvertiseCta from '@/components/business/AdvertiseCta'
 
 interface StatePageProps {
   params: Promise<{
@@ -193,6 +194,8 @@ export default async function StatePage({ params, searchParams }: StatePageProps
         title={`Featured in ${stateName}`}
         limit={6}
       />
+
+      <AdvertiseCta />
 
       {/* Stats Section */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

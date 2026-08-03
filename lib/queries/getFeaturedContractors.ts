@@ -21,7 +21,7 @@
 
 import { getDb } from '@/lib/db'
 import { contractors } from '@/lib/db/schema'
-import { and, desc, eq, gt, isNotNull, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNotNull, notInArray, sql, count } from 'drizzle-orm'
 
 export type FeaturedContractor = {
   id: number
@@ -36,6 +36,10 @@ export type FeaturedContractor = {
   emergencyService: boolean | null
   isSponsored: boolean
 }
+
+// Maximum limits
+export const MAX_FEATURED_NATIONAL = 15
+export const MAX_FEATURED_PER_STATE = 5
 
 const SELECT_FIELDS = {
   id: contractors.id,
@@ -131,4 +135,102 @@ export async function getFeaturedContractors(
       isSponsored: false,
     })),
   ]
+}
+
+// --- Capacity & Availability Functions ---
+
+/**
+ * Get the current count of active sponsored featured contractors
+ * @param stateAbbrev Optional state abbreviation to scope the count
+ */
+export async function getFeaturedCount(stateAbbrev?: string): Promise<number> {
+  const db = getDb()
+  const now = new Date()
+
+  // Build the same scope filter as above
+  const sponsoredScopeFilter = stateAbbrev
+    ? and(
+        eq(contractors.featuredScope, 'state'),
+        eq(contractors.state_abbrev, stateAbbrev)
+      )
+    : sql`(${contractors.featuredScope} = 'national' OR ${contractors.featuredScope} IS NULL)`
+
+  const result = await db
+    .select({ count: count() })
+    .from(contractors)
+    .where(
+      and(
+        eq(contractors.published, true),
+        eq(contractors.featured, true),
+        isNotNull(contractors.featuredUntil),
+        gt(contractors.featuredUntil, now),
+        sponsoredScopeFilter
+      )
+    )
+
+  return Number(result[0]?.count || 0)
+}
+
+/**
+ * Check if there's capacity for more featured listings
+ * @param stateAbbrev Optional state abbreviation to check capacity for
+ */
+export async function hasFeaturedCapacity(stateAbbrev?: string): Promise<boolean> {
+  const currentCount = await getFeaturedCount(stateAbbrev)
+  const maxLimit = stateAbbrev ? MAX_FEATURED_PER_STATE : MAX_FEATURED_NATIONAL
+  return currentCount < maxLimit
+}
+
+/**
+ * Get the number of remaining featured slots
+ * @param stateAbbrev Optional state abbreviation to check slots for
+ */
+export async function getRemainingFeaturedSlots(stateAbbrev?: string): Promise<number> {
+  const currentCount = await getFeaturedCount(stateAbbrev)
+  const maxLimit = stateAbbrev ? MAX_FEATURED_PER_STATE : MAX_FEATURED_NATIONAL
+  return Math.max(0, maxLimit - currentCount)
+}
+
+/**
+ * Get all unique states with their featured counts
+ * Queries the distinct state_abbrev values from the contractors table
+ */
+export async function getStatesFeaturedCounts() {
+  const db = getDb()
+  const now = new Date()
+
+  // Get all unique state abbreviations from contractors
+  const allStates = await db
+    .select({
+      stateAbbrev: contractors.state_abbrev,
+      stateName: contractors.state,
+    })
+    .from(contractors)
+    .where(
+      and(
+        eq(contractors.published, true),
+        isNotNull(contractors.state_abbrev)
+      )
+    )
+    .groupBy(contractors.state_abbrev, contractors.state)
+    .orderBy(contractors.state)
+
+  // For each state, count active featured contractors
+  const results = []
+  for (const state of allStates) {
+    if (!state.stateAbbrev) continue
+    
+    const count = await getFeaturedCount(state.stateAbbrev)
+    results.push({
+      stateAbbrev: state.stateAbbrev,
+      stateName: state.stateName || state.stateAbbrev,
+      featuredCount: count,
+      remainingSlots: Math.max(0, MAX_FEATURED_PER_STATE - count),
+      maxSlots: MAX_FEATURED_PER_STATE,
+      isFull: count >= MAX_FEATURED_PER_STATE,
+    })
+  }
+
+  // Sort by featured count descending
+  return results.sort((a, b) => b.featuredCount - a.featuredCount)
 }

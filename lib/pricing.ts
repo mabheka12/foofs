@@ -5,8 +5,8 @@ export type Duration = 1 | 3 | 12
 
 export const PRICING: Record<Scope, Record<Duration, number>> = {
   // cents
-  national: { 1: 9900, 3: 18699, 12: 74800 }, // $199 / $166mo / $125mo
-  state: { 1: 4900, 3: 12200, 12: 36999 },       // $79 / $66mo / $50mo
+  national: { 1: 4900, 3: 12200, 12: 36999 }, // $199 / $166mo / $125mo
+  state: { 1: 1900, 3: 4700, 12: 14300 },       // $79 / $66mo / $50mo
 }
 
 export const SCOPE_LABEL: Record<Scope, string> = {
