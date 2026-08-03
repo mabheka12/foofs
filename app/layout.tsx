@@ -77,10 +77,11 @@ export default async function RootLayout({
         {/* Add preconnect for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <Script 
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6988145475779418"
-          crossOrigin="anonymous"
-        />
+         <script
+            async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6988145475779418"
+            crossOrigin="anonymous"
+          />
          <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-559VYGT9H5"
           strategy="afterInteractive"
