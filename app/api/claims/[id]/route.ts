@@ -1,42 +1,32 @@
 // app/api/claims/[id]/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { businessClaims, claimHistory, contractors } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { sendEmail, getClaimApprovedEmail, getClaimRejectedEmail } from '@/lib/notifications/email'
 
+// GET /api/claims/[id]
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const db = getDb()
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const claimId = parseInt(id)
 
+  if (isNaN(claimId)) {
+    return NextResponse.json(
+      { error: 'Invalid claim ID' },
+      { status: 400 }
+    )
+  }
+
+  try {
     const claim = await db
-      .select({
-        id: businessClaims.id,
-        contractorId: businessClaims.contractorId,
-        userEmail: businessClaims.userEmail,
-        userName: businessClaims.userName,
-        userPhone: businessClaims.userPhone,
-        role: businessClaims.role,
-        proofDocuments: businessClaims.proofDocuments,
-        message: businessClaims.message,
-        status: businessClaims.status,
-        adminNotes: businessClaims.adminNotes,
-        createdAt: businessClaims.createdAt,
-        updatedAt: businessClaims.updatedAt,
-        contractorName: contractors.name,
-        contractorSlug: contractors.slug,
-        contractorCity: contractors.city,
-        contractorState: contractors.state,
-        contractorPhone: contractors.phone,
-        contractorAddress: contractors.address,
-      })
+      .select()
       .from(businessClaims)
-      .leftJoin(contractors, eq(businessClaims.contractorId, contractors.id))
-      .where(eq(businessClaims.id, parseInt(id)))
+      .where(eq(businessClaims.id, claimId))
       .limit(1)
 
     if (!claim.length) {
@@ -46,14 +36,7 @@ export async function GET(
       )
     }
 
-    // Get claim history
-    const history = await db
-      .select()
-      .from(claimHistory)
-      .where(eq(claimHistory.claimId, parseInt(id)))
-      .orderBy(claimHistory.createdAt)
-
-    return NextResponse.json({ claim: claim[0], history })
+    return NextResponse.json(claim[0])
   } catch (error) {
     console.error('Error fetching claim:', error)
     return NextResponse.json(
@@ -63,111 +46,134 @@ export async function GET(
   }
 }
 
-// PATCH - Update claim status (approve/reject)
+// PATCH /api/claims/[id]
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const body = await request.json()
-    const { status, adminNotes, performedBy } = body
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const claimId = parseInt(id)
 
-    if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+  if (isNaN(claimId)) {
+    return NextResponse.json(
+      { error: 'Invalid claim ID' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    const body = await request.json()
+    const { status, adminNotes } = body
+
+    if (!status || !['approved', 'rejected'].includes(status)) {
       return NextResponse.json(
-        { error: 'Invalid status' },
+        { error: 'Invalid status. Must be "approved" or "rejected"' },
         { status: 400 }
       )
     }
 
-    const db = getDb()
-    const claimId = parseInt(id)
-
-    // Get current claim with contractor details
-    const current = await db
-      .select({
-        id: businessClaims.id,
-        contractorId: businessClaims.contractorId,
-        userEmail: businessClaims.userEmail,
-        userName: businessClaims.userName,
-        status: businessClaims.status,
-        contractorName: contractors.name,
-      })
+    // Get the claim with contractor info
+    const claimResult = await db
+      .select()
       .from(businessClaims)
-      .leftJoin(contractors, eq(businessClaims.contractorId, contractors.id))
       .where(eq(businessClaims.id, claimId))
       .limit(1)
 
-    if (!current.length) {
+    if (!claimResult.length) {
       return NextResponse.json(
         { error: 'Claim not found' },
         { status: 404 }
       )
     }
 
-    // Update claim
-    const [updated] = await db
+    const claim = claimResult[0]
+    const contractorId = claim.contractorId
+
+    if (contractorId == null) {
+      return NextResponse.json(
+        { error: 'Claim missing contractor ID' },
+        { status: 400 }
+      )
+    }
+
+    const contractorResult = await db
+      .select({ name: contractors.name })
+      .from(contractors)
+      .where(eq(contractors.id, contractorId))
+      .limit(1)
+
+    const contractorName = contractorResult.length
+      ? contractorResult[0].name
+      : 'Your Business'
+
+    // Update claim status
+    await db
       .update(businessClaims)
       .set({
-        status,
-        adminNotes,
+        status: status,
         updatedAt: new Date(),
       })
       .where(eq(businessClaims.id, claimId))
-      .returning()
 
-    // Log to history
+    // Add to history
     await db.insert(claimHistory).values({
-      claimId,
+      claimId: claimId,
       action: status,
-      note: `Claim ${status} by ${performedBy || 'admin'}${adminNotes ? `: ${adminNotes}` : ''}`,
-      performedBy: performedBy || 'admin',
+      note: adminNotes || null,
+      createdAt: new Date(),
     })
 
-    // If approved, update contractor and send email
+    // If approved, update contractor's verified status
     if (status === 'approved') {
-      const contractorId = current[0].contractorId
+      await db
+        .update(contractors)
+        .set({
+          verified: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(contractors.id, contractorId))
+    }
 
-      if (contractorId != null) {
-        await db
-          .update(contractors)
-          .set({
-            verified: true,
+    // Send email notification
+    const userEmail = claim.userEmail
+
+    if (userEmail) {
+      try {
+        let emailResult
+        if (status === 'approved') {
+          emailResult = await getClaimApprovedEmail({
+            id: claim.id,
+            contractorName: contractorName,
+            contractorId: contractorId,
+            email: userEmail,
+            status: 'approved',
           })
-          .where(eq(contractors.id, contractorId))
-      }
+        } else {
+          emailResult = await getClaimRejectedEmail({
+            id: claim.id,
+            contractorName: contractorName,
+            contractorId: contractorId,
+            email: userEmail,
+            status: 'rejected',
+            adminNotes: adminNotes || undefined,
+          })
+        }
 
-      // Send email notification
-      try {
-        const emailData = getClaimApprovedEmail({
-          contractorName: current[0].contractorName,
-        })
-        await sendEmail({
-          to: current[0].userEmail,
-          subject: emailData.subject,
-          html: emailData.html,
-        })
+        if (!emailResult.success) {
+          console.error('Failed to send email:', emailResult.error)
+        }
       } catch (emailError) {
-        console.error('Failed to send email notification:', emailError)
-      }
-    } else if (status === 'rejected') {
-      // Send rejection email
-      try {
-        const emailData = getClaimRejectedEmail({
-          contractorName: current[0].contractorName,
-          adminNotes,
-        })
-        await sendEmail({
-          to: current[0].userEmail,
-          subject: emailData.subject,
-          html: emailData.html,
-        })
-      } catch (emailError) {
-        console.error('Failed to send email notification:', emailError)
+        console.error('Email error:', emailError)
       }
     }
 
-    return NextResponse.json({ success: true, claim: updated })
+    return NextResponse.json({
+      success: true,
+      message: `Claim ${status} successfully`,
+      claimId: claim.id,
+    })
   } catch (error) {
     console.error('Error updating claim:', error)
     return NextResponse.json(
@@ -177,27 +183,37 @@ export async function PATCH(
   }
 }
 
-// DELETE - Remove a claim (admin only)
+// DELETE /api/claims/[id]
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const db = getDb()
-    const claimId = parseInt(id)
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const claimId = parseInt(id)
 
-    // Delete claim history first
+  if (isNaN(claimId)) {
+    return NextResponse.json(
+      { error: 'Invalid claim ID' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    // Delete claim and associated history
     await db
       .delete(claimHistory)
       .where(eq(claimHistory.claimId, claimId))
 
-    // Delete claim
     await db
       .delete(businessClaims)
       .where(eq(businessClaims.id, claimId))
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: 'Claim deleted successfully',
+    })
   } catch (error) {
     console.error('Error deleting claim:', error)
     return NextResponse.json(

@@ -25,9 +25,8 @@ interface ContactData {
 }
 
 export const EmailTemplates = {
-  // Claim Templates
   claimApproved: (data: ClaimData) => ({
-    subject: `🎉 Your Business Claim for "${data.contractorName}" Has Been Approved!`,
+    subject: `🎉 Your Business Claim for "${data.contractorName || 'Your Business'}" Has Been Approved!`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border-radius: 12px;">
         <div style="text-align: center; padding: 20px 0;">
@@ -36,7 +35,7 @@ export const EmailTemplates = {
         </div>
         
         <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0; color: #166534;">✅ Your claim for <strong>${data.contractorName}</strong> has been approved.</p>
+          <p style="margin: 0; color: #166534;">✅ Your claim for <strong>${data.contractorName || 'Your Business'}</strong> has been approved.</p>
         </div>
         
         <p style="color: #4b5563; line-height: 1.6;">You can now:</p>
@@ -48,7 +47,7 @@ export const EmailTemplates = {
         </ul>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/claim/${data.id}" 
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard" 
              style="display: inline-block; padding: 14px 32px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
             Go to Dashboard
           </a>

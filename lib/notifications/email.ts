@@ -9,6 +9,9 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@roofleakrepaird.com'
 const ADMIN_EMAIL = process.env.RESEND_TO_EMAIL || 'admin@roofleakrepaird.com'
 
+// ============================================================
+// 1. Core send function
+// ============================================================
 export async function sendEmail({ to, subject, html, from, replyTo }: EmailOptions) {
   if (!process.env.RESEND_API_KEY) {
     console.warn('⚠️ RESEND_API_KEY not set. Email not sent.')
@@ -23,7 +26,7 @@ export async function sendEmail({ to, subject, html, from, replyTo }: EmailOptio
       to: [to],
       subject,
       html,
-      replyTo: replyTo || undefined,
+      replyTo: replyTo ? [replyTo] : undefined,
     })
 
     if (error) {
@@ -39,27 +42,54 @@ export async function sendEmail({ to, subject, html, from, replyTo }: EmailOptio
   }
 }
 
+// ============================================================
+// 2. Claim email functions (used by API routes)
+// ============================================================
+
 // Send claim approved notification
 export async function sendClaimApprovedEmail(claim: ClaimData) {
-  // Ensure id is a string for the email template
-  const template = EmailTemplates.claimApproved({ ...claim, id: String((claim as any).id) })
+  // Ensure contractorName is a string
+  const contractorName = claim.contractorName || 'Your Business'
+  
+  const template = EmailTemplates.claimApproved({
+    ...claim,
+    // Ensure id is a string to match ClaimData type
+    id: String((claim as any).id ?? ''),
+    contractorName: contractorName,
+  })
+  
   return sendEmail({
-    to: (claim as any).email || ADMIN_EMAIL,
+    to: claim.email || claim.userEmail || ADMIN_EMAIL,
     subject: template.subject,
     html: template.html,
   })
 }
 
-// Send claim rejected notification
 export async function sendClaimRejectedEmail(claim: ClaimData) {
-  // Ensure id is a string for the email template
-  const template = EmailTemplates.claimRejected({ ...claim, id: String((claim as any).id) })
+  // Ensure contractorName is a string
+  const contractorName = claim.contractorName || 'Your Business'
+  
+  const template = EmailTemplates.claimRejected({
+    ...claim,
+    // Ensure id is a string to match ClaimData type
+    id: String((claim as any).id ?? ''),
+    contractorName: contractorName,
+  })
+  
   return sendEmail({
-    to: (claim as any).email || ADMIN_EMAIL,
+    to: claim.email || claim.userEmail || ADMIN_EMAIL,
     subject: template.subject,
     html: template.html,
   })
 }
+
+// Alias exports for backward compatibility with API routes
+export const getClaimApprovedEmail = sendClaimApprovedEmail
+export const getClaimRejectedEmail = sendClaimRejectedEmail
+
+// ============================================================
+// 3. Review email functions (used by API routes)
+// ============================================================
 
 // Send review approved notification
 export async function sendReviewApprovedEmail(review: ReviewData, userEmail: string) {
@@ -80,6 +110,14 @@ export async function sendReviewRejectedEmail(review: ReviewData, userEmail: str
     html: template.html,
   })
 }
+
+// Alias exports for backward compatibility with API routes
+export const getReviewApprovedEmail = sendReviewApprovedEmail
+export const getReviewRejectedEmail = sendReviewRejectedEmail
+
+// ============================================================
+// 4. Contact email functions
+// ============================================================
 
 // Send contact confirmation to user
 export async function sendContactConfirmationEmail(data: ContactData) {
@@ -103,16 +141,6 @@ export async function sendContactNotificationEmail(data: ContactData) {
   })
 }
 
-// Send welcome email
-export async function sendWelcomeEmail(name: string, email: string) {
-  const template = EmailTemplates.welcome({ name, email })
-  return sendEmail({
-    to: email,
-    subject: template.subject,
-    html: template.html,
-  })
-}
-
 // Send both contact emails (to user and admin)
 export async function sendContactEmails(data: ContactData) {
   const [userResult, adminResult] = await Promise.all([
@@ -124,4 +152,18 @@ export async function sendContactEmails(data: ContactData) {
     user: userResult,
     admin: adminResult,
   }
+}
+
+// ============================================================
+// 5. Welcome email
+// ============================================================
+
+// Send welcome email
+export async function sendWelcomeEmail(name: string, email: string) {
+  const template = EmailTemplates.welcome({ name, email })
+  return sendEmail({
+    to: email,
+    subject: template.subject,
+    html: template.html,
+  })
 }

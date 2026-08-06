@@ -16,21 +16,24 @@ export interface NotificationPayload {
 
 export interface ClaimData {
   id: number
-  contractorName: string
+  contractorName: string  // Required, not nullable
   contractorId: number
   businessName?: string
+  email?: string
+  userEmail?: string
   adminNotes?: string
   status: 'pending' | 'approved' | 'rejected'
 }
 
 export interface ReviewData {
   id: number
-  contractorName: string
+  contractorName: string  // Required, not nullable
   contractorSlug: string
   rating: number
   title?: string
   content?: string
   adminNotes?: string
+  email?: string
   status: 'pending' | 'approved' | 'rejected'
 }
 

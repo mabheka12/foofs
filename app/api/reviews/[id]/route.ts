@@ -1,22 +1,32 @@
 // app/api/reviews/[id]/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { appReviews, reviewHelpfulVotes, contractors } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { sendEmail, getReviewApprovedEmail, getReviewRejectedEmail } from '@/lib/notifications/email'
 
+// GET /api/reviews/[id]
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const db = getDb()
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const reviewId = parseInt(id)
 
+  if (isNaN(reviewId)) {
+    return NextResponse.json(
+      { error: 'Invalid review ID' },
+      { status: 400 }
+    )
+  }
+
+  try {
     const review = await db
       .select()
       .from(appReviews)
-      .where(eq(appReviews.id, parseInt(id)))
+      .where(eq(appReviews.id, reviewId))
       .limit(1)
 
     if (!review.length) {
@@ -26,7 +36,7 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ review: review[0] })
+    return NextResponse.json(review[0])
   } catch (error) {
     console.error('Error fetching review:', error)
     return NextResponse.json(
@@ -36,91 +46,113 @@ export async function GET(
   }
 }
 
-// PATCH - Update review status (admin moderation)
+// PATCH /api/reviews/[id]
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const reviewId = parseInt(id)
+
+  if (isNaN(reviewId)) {
+    return NextResponse.json(
+      { error: 'Invalid review ID' },
+      { status: 400 }
+    )
+  }
+
   try {
-    const { id } = await params
     const body = await request.json()
     const { status, adminNotes } = body
 
-    if (!status || !['approved', 'rejected', 'flagged', 'pending'].includes(status)) {
+    if (!status || !['approved', 'rejected'].includes(status)) {
       return NextResponse.json(
-        { error: 'Invalid status' },
+        { error: 'Invalid status. Must be "approved" or "rejected"' },
         { status: 400 }
       )
     }
 
-    const db = getDb()
-    const reviewId = parseInt(id)
-
-    // Get current review with contractor details
-    const current = await db
-      .select({
-        id: appReviews.id,
-        userEmail: appReviews.userEmail,
-        userName: appReviews.userName,
-        rating: appReviews.rating,
-        title: appReviews.title,
-        content: appReviews.content,
-        contractorName: contractors.name,
-        contractorSlug: contractors.slug,
-      })
+    // Get review with contractor info
+    const reviewResult = await db
+      .select()
       .from(appReviews)
-      .leftJoin(contractors, eq(appReviews.contractorId, contractors.id))
       .where(eq(appReviews.id, reviewId))
       .limit(1)
 
-    if (!current.length) {
+    if (!reviewResult.length) {
       return NextResponse.json(
         { error: 'Review not found' },
         { status: 404 }
       )
     }
 
-    const [updated] = await db
+    const review = reviewResult[0]
+
+    if (review.contractorId == null) {
+      return NextResponse.json(
+        { error: 'Review contractor not found' },
+        { status: 404 }
+      )
+    }
+
+    // Update review status
+    await db
       .update(appReviews)
       .set({
-        status,
-        adminNotes,
+        status: status,
         updatedAt: new Date(),
       })
       .where(eq(appReviews.id, reviewId))
-      .returning()
 
-    // Send email notification
-    try {
-      if (status === 'approved') {
-        const emailData = getReviewApprovedEmail({
-          contractorName: current[0].contractorName,
-          contractorSlug: current[0].contractorSlug,
-          rating: current[0].rating,
-          title: current[0].title,
-          content: current[0].content,
-        })
-        await sendEmail({
-          to: current[0].userEmail,
-          subject: emailData.subject,
-          html: emailData.html,
-        })
-      } else if (status === 'rejected') {
-        const emailData = getReviewRejectedEmail({
-          contractorName: current[0].contractorName,
-          adminNotes,
-        })
-        await sendEmail({
-          to: current[0].userEmail,
-          subject: emailData.subject,
-          html: emailData.html,
-        })
+    // Get contractor info for email
+    const contractorResult = await db
+      .select({
+        name: contractors.name,
+        slug: contractors.slug,
+      })
+      .from(contractors)
+      .where(eq(contractors.id, review.contractorId))
+      .limit(1)
+
+    const contractor = contractorResult[0]
+
+    // Send email notification to user
+    const userEmail = review.userEmail
+    if (userEmail && contractor) {
+      try {
+        let emailResult
+        const reviewData = {
+          id: review.id,
+          contractorName: contractor.name,
+          contractorSlug: contractor.slug,
+          rating: review.rating,
+          title: review.title || undefined,
+          content: review.content || undefined,
+          status: status as 'approved' | 'rejected',
+          adminNotes: adminNotes || undefined,
+        }
+
+        if (status === 'approved') {
+          emailResult = await getReviewApprovedEmail(reviewData, userEmail)
+        } else {
+          emailResult = await getReviewRejectedEmail(reviewData, userEmail)
+        }
+
+        if (!emailResult.success) {
+          console.error('Failed to send email:', emailResult.error)
+        }
+      } catch (emailError) {
+        console.error('Email error:', emailError)
       }
-    } catch (emailError) {
-      console.error('Failed to send email notification:', emailError)
     }
 
-    return NextResponse.json({ success: true, review: updated })
+    return NextResponse.json({
+      success: true,
+      message: `Review ${status} successfully`,
+      reviewId: review.id,
+    })
   } catch (error) {
     console.error('Error updating review:', error)
     return NextResponse.json(
@@ -130,27 +162,37 @@ export async function PATCH(
   }
 }
 
-// DELETE - Remove a review
+// DELETE /api/reviews/[id]
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params
-    const db = getDb()
-    const reviewId = parseInt(id)
+  const db = getDb()
+  // ✅ Await params
+  const { id } = await params
+  const reviewId = parseInt(id)
 
-    // Delete helpful votes first
+  if (isNaN(reviewId)) {
+    return NextResponse.json(
+      { error: 'Invalid review ID' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    // Delete review and associated helpful votes
     await db
       .delete(reviewHelpfulVotes)
       .where(eq(reviewHelpfulVotes.reviewId, reviewId))
 
-    // Delete review
     await db
       .delete(appReviews)
       .where(eq(appReviews.id, reviewId))
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: 'Review deleted successfully',
+    })
   } catch (error) {
     console.error('Error deleting review:', error)
     return NextResponse.json(
