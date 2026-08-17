@@ -8,6 +8,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import Script from 'next/script'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import RoofingPromoRibbon from '@/components/business/RoofingPromoRibbon'
 import { getDb } from '@/lib/db'
 import { contractors } from '@/lib/db/schema'
 
@@ -96,6 +97,7 @@ export default async function RootLayout({
         </Script>
       </head>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
+        <RoofingPromoRibbon />
         <Navbar states={navStates} />
         <main className="flex-grow pt-16">
           {children}

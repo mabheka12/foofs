@@ -12,7 +12,7 @@ interface ShareButtonsProps {
 export default function ShareButtons({ title, slug, excerpt }: ShareButtonsProps) {
   const url = typeof window !== 'undefined' 
     ? window.location.href 
-    : `https://roofleakrepaird.com/blog/${slug}`
+    : `https://roofernet.com/blog/${slug}`
 
   const handleShare = () => {
     if (navigator.share) {
