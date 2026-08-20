@@ -1,7 +1,21 @@
 // app/sitemap.ts
+import { AmazonLinks } from '@/data/roofing-products';
 import { getDb } from '@/lib/db'
 import { contractors, blogPosts } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
+import { roofingProducts, roofingCategories } from '@/data/roofing-products'
+
+export type RoofingProduct = {
+  id: number;
+  slug: string;
+  title: string;
+  category: string;
+  image: string;
+  description: string;
+  amazon: AmazonLinks;
+  features: string[];
+  lastModified: string;
+};
 
 export default async function sitemap() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://roofernet.com'
@@ -102,6 +116,22 @@ export default async function sitemap() {
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     }))
+//products
+    const productUrls = roofingProducts.map((product) => ({
+  url: `${baseUrl}/roofing-products/product/${product.slug}`,
+  lastModified: 'lastModified' in product
+    ? product.lastModified
+    : new Date().toISOString(),
+  changeFrequency: "monthly" as const,
+  priority: 0.6,
+}));
+
+const categoryUrls = roofingCategories.map((category) => ({
+    url: `${baseUrl}/roofing-products/${category.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
 
     return [
       ...staticPages,
@@ -109,6 +139,8 @@ export default async function sitemap() {
       ...cityPages,
       ...contractorPages,
       ...blogPages,
+      ...productUrls,
+      ...categoryUrls,
     ]
   } catch (error) {
     console.error('Error generating sitemap:', error)
