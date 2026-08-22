@@ -11,10 +11,75 @@ import {
 import { shouldIndexContractor } from '@/lib/contractorContent'
 import { serviceGuides } from '@/lib/serviceGuides'
 
+/**
+ * Google accepts YYYY-MM-DD for sitemap lastmod values.
+ *
+ * PostgreSQL timestamps may be returned as:
+ * 2026-08-21 20:36:43.569851
+ *
+ * Returning only the date avoids invalid timezone and fractional-second
+ * formatting problems.
+ */
+function toSitemapDate(value: unknown): string | undefined {
+  if (!value) return undefined
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return undefined
+
+    return value.toISOString().slice(0, 10)
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim()
+
+    if (!trimmedValue) return undefined
+
+    const dateMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})/)
+
+    if (dateMatch) {
+      const candidate = dateMatch[1]
+      const parsedDate = new Date(`${candidate}T00:00:00Z`)
+
+      if (!Number.isNaN(parsedDate.getTime())) {
+        return candidate
+      }
+    }
+
+    const parsedDate = new Date(trimmedValue)
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString().slice(0, 10)
+    }
+  }
+
+  if (typeof value === 'number') {
+    const parsedDate = new Date(value)
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString().slice(0, 10)
+    }
+  }
+
+  return undefined
+}
+
+function serializeOpeningHours(value: unknown): string | null {
+  if (!value) return null
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return null
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const configuredBaseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://www.roofernet.com'
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://www.roofernet.com'
 
   const baseUrl = configuredBaseUrl.replace(/\/+$/, '')
   const db = getDb()
@@ -46,7 +111,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     },
     {
-      url: `${baseUrl}/privacy-policy`,
+      url: `${baseUrl}/privacy`,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
@@ -61,17 +126,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-  url: `${baseUrl}/how-roofernet-works`,
-  changeFrequency: 'monthly',
-  priority: 0.7,
-},
+      url: `${baseUrl}/how-roofernet-works`,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
   ]
 
   try {
+    /*
+     * State pages
+     */
     const stateList = await db
       .select({
         stateSlug: contractors.stateSlug,
-        latestUpdate: sql<Date | null>`
+        latestUpdate: sql<Date | string | null>`
           MAX(${contractors.updatedAt})
         `,
       })
@@ -79,26 +147,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .where(
         and(
           eq(contractors.published, true),
-          sql`${contractors.stateSlug} IS NOT NULL`
+          sql`${contractors.stateSlug} IS NOT NULL`,
+          sql`BTRIM(${contractors.stateSlug}) <> ''`
         )
       )
       .groupBy(contractors.stateSlug)
 
     const statePages: MetadataRoute.Sitemap = stateList
       .filter(
-        (state): state is typeof state & { stateSlug: string } =>
-          Boolean(state.stateSlug)
+        (
+          state
+        ): state is typeof state & {
+          stateSlug: string
+        } => Boolean(state.stateSlug)
       )
-      .map((state) => ({
-        url: `${baseUrl}/${state.stateSlug}`,
-        lastModified: state.latestUpdate || undefined,
-        changeFrequency: 'weekly',
-        priority: 0.9,
-      }))
+      .map((state) => {
+        const lastModified = toSitemapDate(state.latestUpdate)
+
+        return {
+          url: `${baseUrl}/${state.stateSlug}`,
+          ...(lastModified ? { lastModified } : {}),
+          changeFrequency: 'weekly' as const,
+          priority: 0.9,
+        }
+      })
 
     /*
-     * Do not add ?city= URLs. They are filtered views of the state page,
-     * canonicalize to the state page and are marked noindex.
+     * Do not include ?city= URLs.
+     *
+     * City selections are filtered versions of state pages rather than
+     * independent canonical pages.
      */
     const contractorList = await db
       .select({
@@ -124,28 +202,54 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         insuranceVerified: contractors.insuranceVerified,
       })
       .from(contractors)
-      .where(eq(contractors.published, true))
+      .where(
+        and(
+          eq(contractors.published, true),
+          sql`${contractors.slug} IS NOT NULL`,
+          sql`BTRIM(${contractors.slug}) <> ''`,
+          sql`${contractors.stateSlug} IS NOT NULL`,
+          sql`BTRIM(${contractors.stateSlug}) <> ''`
+        )
+      )
 
     const contractorPages: MetadataRoute.Sitemap = contractorList
-      .filter((contractor) => {
-        return (
-          Boolean(contractor.slug) &&
-          Boolean(contractor.stateSlug) &&
-          shouldIndexContractor({
-            ...contractor,
-            openingHours: contractor.openingHours
-              ? JSON.stringify(contractor.openingHours)
-              : null,
-          })
-        )
-      })
-      .map((contractor) => ({
-        url: `${baseUrl}/${contractor.stateSlug}/${contractor.slug}`,
-        lastModified: contractor.updatedAt || undefined,
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      }))
+      .filter((contractor) =>
+        shouldIndexContractor({
+          name: contractor.name,
+          description: contractor.description,
+          address: contractor.address,
+          phone: contractor.phone,
+          website: contractor.website,
+          city: contractor.city,
+          state: contractor.state,
+          stateAbbrev: contractor.stateAbbrev,
+          latitude: contractor.latitude,
+          longitude: contractor.longitude,
+          openingHours: serializeOpeningHours(
+            contractor.openingHours
+          ),
+          servicesOffered: contractor.servicesOffered,
+          rating: contractor.rating,
+          reviewCount: contractor.reviewCount,
+          verified: contractor.verified,
+          licenseNumber: contractor.licenseNumber,
+          insuranceVerified: contractor.insuranceVerified,
+        })
+      )
+      .map((contractor) => {
+        const lastModified = toSitemapDate(contractor.updatedAt)
 
+        return {
+          url: `${baseUrl}/${contractor.stateSlug}/${contractor.slug}`,
+          ...(lastModified ? { lastModified } : {}),
+          changeFrequency: 'monthly' as const,
+          priority: 0.7,
+        }
+      })
+
+    /*
+     * Blog articles
+     */
     const blogList = await db
       .select({
         slug: blogPosts.slug,
@@ -155,39 +259,62 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .where(eq(blogPosts.published, true))
 
     const blogPages: MetadataRoute.Sitemap = blogList
-      .filter((post) => Boolean(post.slug))
-      .map((post) => ({
-        url: `${baseUrl}/blog/${post.slug}`,
-        lastModified: post.publishedAt || undefined,
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      }))
+      .filter(
+        (
+          post
+        ): post is typeof post & {
+          slug: string
+        } => Boolean(post.slug)
+      )
+      .map((post) => {
+        const lastModified = toSitemapDate(post.publishedAt)
 
+        return {
+          url: `${baseUrl}/blog/${post.slug}`,
+          ...(lastModified ? { lastModified } : {}),
+          changeFrequency: 'monthly' as const,
+          priority: 0.7,
+        }
+      })
+
+    /*
+     * Roofing product pages
+     */
     const productPages: MetadataRoute.Sitemap =
-      roofingProducts.map((product) => ({
-        url: `${baseUrl}/roofing-products/product/${product.slug}`,
-        lastModified:
+      roofingProducts.map((product) => {
+        const productDate =
           'lastModified' in product
-            ? (product.lastModified as string | Date | undefined)
-            : undefined,
-        changeFrequency: 'monthly',
-        priority: 0.6,
-      }))
+            ? toSitemapDate(product.lastModified)
+            : undefined
 
+        return {
+          url: `${baseUrl}/roofing-products/product/${product.slug}`,
+          ...(productDate ? { lastModified: productDate } : {}),
+          changeFrequency: 'monthly' as const,
+          priority: 0.6,
+        }
+      })
+
+    /*
+     * Roofing product category pages
+     */
     const categoryPages: MetadataRoute.Sitemap =
       roofingCategories.map((category) => ({
         url: `${baseUrl}/roofing-products/${category.slug}`,
-        changeFrequency: 'weekly',
+        changeFrequency: 'weekly' as const,
         priority: 0.7,
       }))
 
-      const serviceGuidePages: MetadataRoute.Sitemap = Object.keys(
-        serviceGuides
-      ).map((slug) => ({
-        url: `${baseUrl}/services/${slug}`,
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      }))
+    /*
+     * Service guide pages
+     */
+    const serviceGuidePages: MetadataRoute.Sitemap = Object.keys(
+      serviceGuides
+    ).map((slug) => ({
+      url: `${baseUrl}/services/${slug}`,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }))
 
     return [
       ...staticPages,
@@ -196,7 +323,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...blogPages,
       ...productPages,
       ...categoryPages,
-      ...serviceGuidePages
+      ...serviceGuidePages,
     ]
   } catch (error) {
     console.error('Error generating sitemap:', error)
