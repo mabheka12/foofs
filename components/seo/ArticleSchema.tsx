@@ -34,7 +34,7 @@ export function ArticleSchema({ article }: ArticleSchemaProps) {
     keywords: article.keywords?.join(', '),
     publisher: {
       '@type': 'Organization',
-      name: 'Roof Leak Repair Directory',
+      name: 'Roofing Directory',
       logo: {
         '@type': 'ImageObject',
         url: `${process.env.NEXT_PUBLIC_SITE_URL}/logo.png`,

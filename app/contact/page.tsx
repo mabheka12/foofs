@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { Mail, MapPin, Clock, Send, } from 'lucide-react'
 
 export const metadata = generateSeoMetadata({
-  title: 'Contact Us - Roof Leak Repair Directory',
-  description: 'Contact Roof Leak Repair Directory for help finding trusted contractors, partnerships, or general inquiries.',
-  keywords: ['contact us', 'roof leak repair', 'contractor directory', 'help'],
+  title: 'Contact Us - Roofing Directory',
+  description: 'Contact Roofing Directory for help finding trusted contractors, partnerships, or general inquiries.',
+  keywords: ['contact us', 'Roofing', 'contractor directory', 'help'],
   canonical: '/contact',
 })
 

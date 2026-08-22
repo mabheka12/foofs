@@ -1,11 +1,25 @@
 // app/services/[service]/page.tsx
-import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
-import { getDb } from '@/lib/db'
-import { serviceTypes, contractors } from '@/lib/db/schema'
-import { and, eq, sql, desc } from 'drizzle-orm'
-import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPin, Phone, Star, Building, ArrowLeft } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { eq, sql } from 'drizzle-orm'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle,
+  ClipboardCheck,
+  HelpCircle,
+  MapPin,
+} from 'lucide-react'
+
+import { getDb } from '@/lib/db'
+import { contractors, serviceTypes } from '@/lib/db/schema'
+import {
+  getServiceGuide,
+  serviceGuides,
+} from '@/lib/serviceGuides'
+import { DirectoryDisclosure } from '@/components/directory/DirectoryDisclosure'
 
 interface ServicePageProps {
   params: Promise<{
@@ -13,182 +27,341 @@ interface ServicePageProps {
   }>
 }
 
-export async function generateMetadata({ params }: ServicePageProps) {
-  const { service } = await params
-  const db = getDb()
-
-  const serviceData = await db
-    .select()
-    .from(serviceTypes)
-    .where(eq(serviceTypes.slug, service))
-    .limit(1)
-
-  if (!serviceData.length) return {}
-
-  return generateSeoMetadata({
-    title: `${serviceData[0].name} Contractors - Roof Leak Repair Services`,
-    description: serviceData[0].description || `Find professional ${serviceData[0].name} contractors. Compare reviews, get free estimates, and hire the best experts.`,
-    keywords: [serviceData[0].name, 'roof repair', 'contractors'],
-    canonical: `/services/${service}`,
-  })
+export function generateStaticParams() {
+  return Object.keys(serviceGuides).map((service) => ({
+    service,
+  }))
 }
 
-export default async function ServicePage({ params }: ServicePageProps) {
+export async function generateMetadata({
+  params,
+}: ServicePageProps): Promise<Metadata> {
   const { service } = await params
+  const guide = getServiceGuide(service)
+
+  if (!guide) {
+    return {
+      title: 'Roofing Service Not Found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
+  }
+
+  return {
+    title: guide.title,
+    description: guide.summary,
+    alternates: {
+      canonical: `/services/${service}`,
+    },
+  }
+}
+
+export default async function ServicePage({
+  params,
+}: ServicePageProps) {
+  const { service } = await params
+  const guide = getServiceGuide(service)
+
+  if (!guide) {
+    notFound()
+  }
+
   const db = getDb()
 
-  // Get service type
-  const serviceData = await db
-    .select()
-    .from(serviceTypes)
-    .where(eq(serviceTypes.slug, service))
-    .limit(1)
+  const [serviceResult, stateResults] = await Promise.all([
+    db
+      .select({
+        id: serviceTypes.id,
+        name: serviceTypes.name,
+        slug: serviceTypes.slug,
+        description: serviceTypes.description,
+        icon: serviceTypes.icon,
+      })
+      .from(serviceTypes)
+      .where(eq(serviceTypes.slug, service))
+      .limit(1),
 
-  if (!serviceData.length) notFound()
-
-  const serviceType = serviceData[0]
-
-  // Get contractors offering this service
-  const contractorsList = await db
-    .select({
-      id: contractors.id,
-      name: contractors.name,
-      slug: contractors.slug,
-      city: contractors.city,
-      state: contractors.state,
-      stateAbbrev: contractors.state_abbrev,
-      stateSlug: contractors.stateSlug,
-      rating: contractors.rating,
-      reviewCount: contractors.reviewCount,
-      phone: contractors.phone,
-      description: contractors.description,
-      emergencyService: contractors.emergencyService,
-      verified: contractors.verified,
-      featured: contractors.featured,
-    })
-    .from(contractors)
-    .where(
-      and(
-        eq(contractors.published, true),
-        sql`EXISTS (
-          SELECT 1 FROM jsonb_array_elements_text(${contractors.servicesOffered}) AS s 
-          WHERE s = ${serviceType.name}
-        )`
+    db
+      .select({
+        state: contractors.state,
+        stateSlug: contractors.stateSlug,
+        stateAbbrev: contractors.state_abbrev,
+        contractorCount: sql<number>`COUNT(*)`.as(
+          'contractor_count'
+        ),
+      })
+      .from(contractors)
+      .where(eq(contractors.published, true))
+      .groupBy(
+        contractors.state,
+        contractors.stateSlug,
+        contractors.state_abbrev
       )
-    )
-    .orderBy(desc(contractors.rating))
+      .orderBy(sql`COUNT(*) DESC`)
+      .limit(12),
+  ])
+
+  if (!serviceResult.length) {
+    notFound()
+  }
+
+  const serviceType = serviceResult[0]
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: guide.title,
+    description: guide.summary,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `https://www.roofernet.com/services/${service}`,
+    },
+    author: {
+      '@type': 'Organization',
+      name: 'RooferNet',
+      url: 'https://www.roofernet.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'RooferNet',
+      url: 'https://www.roofernet.com',
+    },
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-600 mb-6">
-        <Link href="/" className="hover:text-blue-600">Home</Link>
+    <main className="container mx-auto max-w-6xl px-4 py-8">
+      <nav className="mb-6 text-sm text-gray-600">
+        <Link href="/" className="hover:text-blue-600">
+          Home
+        </Link>
+
         <span className="mx-2">/</span>
-        <Link href="/services" className="hover:text-blue-600">Services</Link>
+
+        <Link href="/services" className="hover:text-blue-600">
+          Roofing Services
+        </Link>
+
         <span className="mx-2">/</span>
-        <span className="text-gray-800">{serviceType.name}</span>
+
+        <span className="text-gray-800">
+          {serviceType.name}
+        </span>
       </nav>
 
-      {/* Back Button */}
       <Link
         href="/services"
-        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-6"
+        className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800"
       >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Services
+        <ArrowLeft className="h-4 w-4" />
+        Back to roofing service guides
       </Link>
 
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          {serviceType.name} Contractors
-        </h1>
-        <p className="text-xl text-gray-600 max-w-3xl">
-          {serviceType.description || `Find professional ${serviceType.name.toLowerCase()} contractors in your area.`}
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="bg-blue-50 rounded-lg p-4 mb-8">
-        <p className="text-sm text-gray-700">
-          <span className="font-bold">{contractorsList.length}</span> contractors found offering {serviceType.name}
-        </p>
-      </div>
-
-      {/* Contractors List */}
-      {contractorsList.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-600 text-lg">No contractors found for {serviceType.name}.</p>
-          <Link 
-            href="/services"
-            className="text-blue-600 hover:underline mt-2 inline-block"
+      <article>
+        <header className="mb-10 rounded-2xl bg-gradient-to-br from-blue-50 to-white p-8 md:p-12">
+          <div
+            aria-hidden="true"
+            className="mb-5 text-5xl"
           >
-            Browse other services
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {contractorsList.map((contractor) => (
-            <Link
-              key={contractor.id}
-              href={`/${contractor.stateSlug}/${contractor.slug}`}
-              className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow hover:border-blue-300 group"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition">
-                  {contractor.name}
-                </h3>
-                {contractor.rating && (
-                  <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="font-bold text-sm">{Number(contractor.rating).toFixed(1)}</span>
-                    {contractor.reviewCount && (
-                      <span className="text-xs text-gray-500">({contractor.reviewCount})</span>
-                    )}
-                  </div>
-                )}
+            {serviceType.icon || '🔧'}
+          </div>
+
+          <h1 className="text-4xl font-bold text-gray-900 md:text-5xl">
+            {guide.title}
+          </h1>
+
+          <p className="mt-5 max-w-3xl text-xl leading-relaxed text-gray-600">
+            {guide.summary}
+          </p>
+        </header>
+
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <div className="space-y-8">
+            <section className="rounded-xl border border-gray-200 bg-white p-6 md:p-8">
+              <h2 className="text-2xl font-bold text-gray-900">
+                What is {serviceType.name.toLowerCase()}?
+              </h2>
+
+              <p className="mt-4 leading-relaxed text-gray-700">
+                {guide.introduction}
+              </p>
+            </section>
+
+            <section className="rounded-xl border border-orange-200 bg-orange-50 p-6 md:p-8">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-orange-700" />
+
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Signs This Service May Be Needed
+                </h2>
               </div>
 
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                {contractor.description || `Professional ${serviceType.name} services.`}
+              <ul className="mt-5 space-y-3">
+                {guide.warningSigns.map((sign) => (
+                  <li
+                    key={sign}
+                    className="flex items-start gap-3 text-gray-700"
+                  >
+                    <span className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-orange-500" />
+                    <span>{sign}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 bg-white p-6 md:p-8">
+              <div className="flex items-center gap-3">
+                <ClipboardCheck className="h-6 w-6 text-blue-600" />
+
+                <h2 className="text-2xl font-bold text-gray-900">
+                  What the Work May Include
+                </h2>
+              </div>
+
+              <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                The precise scope depends on the roof and the conditions
+                discovered during inspection. Confirm every included
+                item in writing.
               </p>
 
-              <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                {contractor.city && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {contractor.city}, {contractor.stateAbbrev}
-                  </span>
-                )}
-                {contractor.phone && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5" />
-                    {contractor.phone}
-                  </span>
-                )}
+              <ul className="mt-5 grid gap-3 md:grid-cols-2">
+                {guide.typicalWork.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-3 rounded-lg bg-gray-50 p-4 text-sm text-gray-700"
+                  >
+                    <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="rounded-xl border border-blue-200 bg-blue-50 p-6 md:p-8">
+              <div className="flex items-center gap-3">
+                <HelpCircle className="h-6 w-6 text-blue-700" />
+
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Questions to Ask a Contractor
+                </h2>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {contractor.emergencyService && (
-                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                    Emergency 24/7
-                  </span>
-                )}
-                {contractor.verified && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    ✓ Verified
-                  </span>
-                )}
-                {contractor.featured && (
-                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                    ★ Featured
-                  </span>
-                )}
-              </div>
-            </Link>
-          ))}
+              <ol className="mt-5 space-y-3">
+                {guide.contractorQuestions.map((question, index) => (
+                  <li
+                    key={question}
+                    className="flex items-start gap-3 text-gray-700"
+                  >
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                      {index + 1}
+                    </span>
+
+                    <span className="pt-0.5">{question}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className="rounded-xl border border-gray-200 bg-white p-6 md:p-8">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Important Considerations
+              </h2>
+
+              <ul className="mt-5 space-y-3">
+                {guide.considerations.map((consideration) => (
+                  <li
+                    key={consideration}
+                    className="flex items-start gap-3 text-gray-700"
+                  >
+                    <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
+                    <span>{consideration}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <DirectoryDisclosure />
+          </div>
+
+          <aside className="space-y-6">
+            <div className="rounded-xl bg-gray-900 p-6 text-white lg:sticky lg:top-24">
+              <h2 className="text-xl font-bold">
+                Find Roofing Contractors
+              </h2>
+
+              <p className="mt-3 text-sm leading-relaxed text-gray-300">
+                {guide.nextStep}
+              </p>
+
+              <Link
+                href="/states"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-700"
+              >
+                Browse all states
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </aside>
         </div>
-      )}
-    </div>
+      </article>
+
+      <section className="mt-12 border-t border-gray-200 pt-10">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Browse Contractors by State
+        </h2>
+
+        <p className="mt-2 text-gray-600">
+          These links show general roofing contractor listings. Confirm
+          the required service directly with each business.
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {stateResults.map((state) => {
+            if (!state.state || !state.stateSlug) return null
+
+            return (
+              <Link
+                key={state.stateSlug}
+                href={`/${state.stateSlug}`}
+                className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-blue-300 hover:shadow-sm"
+              >
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {state.state}
+                    </div>
+
+                    <div className="mt-1 text-xs text-gray-500">
+                      {Number(
+                        state.contractorCount
+                      ).toLocaleString('en-US')}{' '}
+                      listings
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+
+        <Link
+          href="/states"
+          className="mt-6 inline-flex items-center gap-2 font-medium text-blue-600 hover:underline"
+        >
+          View every state
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd),
+        }}
+      />
+    </main>
   )
 }

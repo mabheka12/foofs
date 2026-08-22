@@ -1,20 +1,39 @@
 // app/[state]/[slug]/page.tsx
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import { getDb } from '@/lib/db'
-import { contractors, reviews } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { contractors } from '@/lib/db/schema'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import {
+  AlertTriangle,
+  Award,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  ExternalLink,
+  FileCheck,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  Star,
+} from 'lucide-react'
+
 import { RatingStars } from '@/components/directory/RatingStars'
 import { ContractorCard } from '@/components/directory/ContractorCard'
 import Map from '@/components/directory/Map'
-import { Phone, MapPin, Clock, Star, Shield, FileCheck, CreditCard, Calendar, Award, ExternalLink } from 'lucide-react'
 import { RelatedContent } from '@/components/directory/RelatedContent'
 import { ReviewList } from '@/components/reviews/ReviewList'
 import { ReviewForm } from '@/components/reviews/ReviewForm'
-import { RatingSummary } from '@/components/reviews/RatingSummary'
 import { ClaimBusinessButton } from '@/components/business/ClaimBusinessButton'
-import  AdvertiseCta  from '@/components/business/AdvertiseCta'
+import AdvertiseCta from '@/components/business/AdvertiseCta'
+import { ListingAccuracyPanel } from '@/components/directory/ListingAccuracyPanel'
+import { DirectoryDisclosure } from '@/components/directory/DirectoryDisclosure'
+import {
+  getContractorMetaDescription,
+  shouldIndexContractor,
+} from '@/lib/contractorContent'
 
 interface ContractorPageProps {
   params: Promise<{
@@ -23,49 +42,280 @@ interface ContractorPageProps {
   }>
 }
 
-export async function generateMetadata({ params }: ContractorPageProps) {
+interface OpeningHour {
+  day: string
+  hours: string
+}
+
+function humanizeSlug(value: string) {
+  return value
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function createSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getStringArray(value: unknown): string[] {
+  if (!value) return []
+
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return getStringArray(JSON.parse(value))
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    }
+  }
+
+  return []
+}
+
+function formatOpeningHours(value: unknown): OpeningHour[] {
+  if (!value) return []
+
+  let parsedValue: unknown = value
+
+  if (typeof value === 'string') {
+    try {
+      parsedValue = JSON.parse(value)
+    } catch {
+      return value
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const separatorIndex = line.indexOf(':')
+
+          if (separatorIndex === -1) {
+            return {
+              day: '',
+              hours: line,
+            }
+          }
+
+          return {
+            day: line.slice(0, separatorIndex).trim(),
+            hours: line.slice(separatorIndex + 1).trim(),
+          }
+        })
+    }
+  }
+
+  if (Array.isArray(parsedValue)) {
+    return parsedValue
+      .map((item): OpeningHour | null => {
+        if (typeof item === 'string') {
+          const separatorIndex = item.indexOf(':')
+
+          return separatorIndex === -1
+            ? { day: '', hours: item.trim() }
+            : {
+                day: item.slice(0, separatorIndex).trim(),
+                hours: item.slice(separatorIndex + 1).trim(),
+              }
+        }
+
+        if (!item || typeof item !== 'object') return null
+
+        const record = item as Record<string, unknown>
+        const day = String(record.day ?? record.Day ?? '').trim()
+        const open = String(record.open ?? record.Open ?? '').trim()
+        const close = String(record.close ?? record.Close ?? '').trim()
+        const hours = String(record.hours ?? record.Hours ?? '').trim()
+
+        if (!day && !open && !close && !hours) return null
+
+        return {
+          day,
+          hours: hours || [open, close].filter(Boolean).join(' – '),
+        }
+      })
+      .filter((item): item is OpeningHour => item !== null)
+  }
+
+  if (typeof parsedValue === 'object' && parsedValue !== null) {
+    return Object.entries(parsedValue)
+      .map(([day, value]): OpeningHour | null => {
+        if (typeof value === 'string') {
+          return {
+            day: humanizeSlug(day),
+            hours: value,
+          }
+        }
+
+        if (!value || typeof value !== 'object') return null
+
+        const record = value as Record<string, unknown>
+        const open = String(record.open ?? record.Open ?? '').trim()
+        const close = String(record.close ?? record.Close ?? '').trim()
+        const hours = String(record.hours ?? record.Hours ?? '').trim()
+
+        return {
+          day: humanizeSlug(day),
+          hours: hours || [open, close].filter(Boolean).join(' – '),
+        }
+      })
+      .filter((item): item is OpeningHour => item !== null)
+  }
+
+  return []
+}
+
+function getSafeWebsiteUrl(value: string | null) {
+  if (!value) return null
+
+  try {
+    const url = new URL(value)
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null
+    }
+
+    return url.toString()
+  } catch {
+    try {
+      return new URL(`https://${value}`).toString()
+    } catch {
+      return null
+    }
+  }
+}
+
+function getDisplayDomain(value: string) {
+  try {
+    return new URL(value).hostname.replace(/^www\./, '')
+  } catch {
+    return value.replace(/^https?:\/\//, '').replace(/^www\./, '')
+  }
+}
+
+function getValidRating(value: unknown) {
+  if (value === null || value === undefined || value === '') return null
+
+  const rating = Number(value)
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return null
+  }
+
+  return rating
+}
+
+export async function generateMetadata({
+  params,
+}: ContractorPageProps) {
   const { state, slug } = await params
-  
   const db = getDb()
-  
+
   const result = await db
     .select()
     .from(contractors)
     .where(
       and(
         eq(contractors.slug, slug),
+        eq(contractors.stateSlug, state),
         eq(contractors.published, true)
       )
     )
     .limit(1)
 
-  if (!result.length) return {}
+  if (!result.length) {
+    return {
+      title: 'Contractor Not Found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
+  }
 
   const contractor = result[0]
-  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const fallbackStateName = humanizeSlug(state)
 
-  return generateSeoMetadata({
-    title: `${contractor.name} - Roof Leak Repair in ${contractor.city || stateName}`,
-    description: contractor.description || `Professional roof leak repair services from ${contractor.name}.`,
-    keywords: [contractor.name, 'roof leak repair', 'roofing contractor'],
+  const isIndexable = shouldIndexContractor({
+    name: contractor.name,
+    description: contractor.description,
+    address: contractor.address,
+    phone: contractor.phone,
+    website: contractor.website,
+    city: contractor.city,
+    state: contractor.state,
+    stateAbbrev: contractor.state_abbrev,
+    latitude: contractor.latitude,
+    longitude: contractor.longitude,
+    openingHours:
+      typeof contractor.openingHours === 'string'
+        ? contractor.openingHours
+        : contractor.openingHours
+          ? JSON.stringify(contractor.openingHours)
+          : null,
+    servicesOffered: contractor.servicesOffered,
+    rating: contractor.rating,
+    reviewCount: contractor.reviewCount,
+    verified: contractor.verified,
+    licenseNumber: contractor.licenseNumber,
+    insuranceVerified: contractor.insuranceVerified,
+  })
+
+  const metadata = generateSeoMetadata({
+    title: `${contractor.name} – Roofing Contractor in ${
+      contractor.city || contractor.state || fallbackStateName
+    }`,
+    description: getContractorMetaDescription({
+      name: contractor.name,
+      description: contractor.description,
+      city: contractor.city,
+      state: contractor.state,
+      stateAbbrev: contractor.state_abbrev,
+    }),
+    keywords: [
+      contractor.name,
+      'roofing contractor',
+      contractor.city
+        ? `roofing contractor ${contractor.city}`
+        : `roofing contractor ${contractor.state || fallbackStateName}`,
+    ],
     canonical: `/${state}/${contractor.slug}`,
   })
+
+  return {
+    ...metadata,
+    robots: {
+      index: isIndexable,
+      follow: true,
+    },
+  }
 }
 
-export default async function ContractorPage({ params }: ContractorPageProps) {
+export default async function ContractorPage({
+  params,
+}: ContractorPageProps) {
   const { state, slug } = await params
-  
   const db = getDb()
-  const stateSlug = state
-  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  
-  // Get contractor by slug
+
   const result = await db
     .select()
     .from(contractors)
     .where(
       and(
         eq(contractors.slug, slug),
+        eq(contractors.stateSlug, state),
         eq(contractors.published, true)
       )
     )
@@ -74,77 +324,21 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
   if (!result.length) notFound()
 
   const contractor = result[0]
+  const stateName = contractor.state || humanizeSlug(state)
+  const citySlug =
+    contractor.citySlug ||
+    (contractor.city ? createSlug(contractor.city) : '')
 
-  // Get reviews
-  const contractorReviews = await db
-    .select()
-    .from(reviews)
-    .where(eq(reviews.contractorId, contractor.id))
-    .orderBy(desc(reviews.publishedAt))
-    .limit(10)
+  const relatedConditions = [
+    eq(contractors.published, true),
+    eq(contractors.stateSlug, state),
+    sql`${contractors.id} <> ${contractor.id}`,
+  ]
 
-  // Helper to safely get latitude/longitude
-  const latitude = contractor.latitude || null
-  const longitude = contractor.longitude || null
-
-  // Calculate total reviews count
-  const totalReviews = contractor.reviewCount || contractorReviews.length || 0
-  const avgRating = contractor.rating != null
-    ? Number(contractor.rating)
-    : contractorReviews.length > 0
-      ? contractorReviews.reduce((sum, r) => sum + r.rating, 0) / contractorReviews.length
-      : 0
-
-  // Parse opening hours from TEXT column
-  const parseOpeningHours = (hoursText: string | null) => {
-    if (!hoursText) return null
-    
-    // Try to parse as JSON first
-    try {
-      const parsed = JSON.parse(hoursText)
-      if (Array.isArray(parsed)) {
-        return parsed
-      }
-      if (typeof parsed === 'object') {
-        return Object.entries(parsed).map(([day, times]: [string, any]) => ({
-          day: day.charAt(0).toUpperCase() + day.slice(1),
-          open: times.open || times.Open || '',
-          close: times.close || times.Close || ''
-        }))
-      }
-    } catch (e) {
-      // Not JSON, parse as text
-    }
-    
-    // Parse as plain text format: "Monday: 8:00 AM – 5:00 PM"
-    const lines = hoursText.split('\n').filter(line => line.trim())
-    const result: { day: string; open: string; close: string }[] = []
-    
-    for (const line of lines) {
-      const match = line.match(/^([^:]+):\s*([^-–]+)\s*[–-]\s*(.+)$/)
-      if (match) {
-        const [, day, open, close] = match
-        result.push({
-          day: day.trim(),
-          open: open.trim(),
-          close: close.trim()
-        })
-      } else {
-        const dayMatch = line.match(/^([^:]+):/)
-        if (dayMatch) {
-          result.push({
-            day: dayMatch[1].trim(),
-            open: line.replace(/^[^:]+:\s*/, '').trim(),
-            close: ''
-          })
-        }
-      }
-    }
-    
-    return result.length > 0 ? result : null
+  if (contractor.city) {
+    relatedConditions.push(eq(contractors.city, contractor.city))
   }
 
-  // ✅ FIXED: Related contractors - same city and state
   const relatedContractors = await db
     .select({
       id: contractors.id,
@@ -156,321 +350,568 @@ export default async function ContractorPage({ params }: ContractorPageProps) {
       reviewCount: contractors.reviewCount,
     })
     .from(contractors)
-    .where(
-      and(
-        eq(contractors.published, true),
-        eq(contractors.city, contractor.city || ''),
-        eq(contractors.state, contractor.state || ''),
-        sql`${contractors.id} != ${contractor.id}`
-      )
+    .where(and(...relatedConditions))
+    .orderBy(
+      desc(contractors.featured),
+      desc(contractors.reviewCount),
+      desc(contractors.rating)
     )
-    .orderBy(desc(contractors.rating))
     .limit(4)
 
-  // ✅ FIXED: Nearby cities - get distinct cities in the same state
   const nearbyCitiesResult = await db
     .select({
       city: contractors.city,
+      citySlug: contractors.citySlug,
       count: sql<number>`COUNT(*)`.as('count'),
     })
     .from(contractors)
     .where(
       and(
         eq(contractors.published, true),
-        eq(contractors.state, contractor.state || ''),
-        sql`${contractors.city} != ${contractor.city || ''}`,
-        sql`${contractors.city} IS NOT NULL`
+        eq(contractors.stateSlug, state),
+        sql`${contractors.city} IS NOT NULL`,
+        sql`BTRIM(${contractors.city}) <> ''`,
+        contractor.city
+          ? sql`${contractors.city} <> ${contractor.city}`
+          : sql`TRUE`
       )
     )
-    .groupBy(contractors.city)
-    .orderBy(sql`count DESC`)
+    .groupBy(contractors.city, contractors.citySlug)
+    .orderBy(desc(sql<number>`COUNT(*)`))
     .limit(6)
 
-  const nearbyCities = nearbyCitiesResult.map(row => ({
-    city: row.city || '',
-    citySlug: row.city ? row.city.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '',
-    count: Number(row.count),
-  }))
+  const nearbyCities = nearbyCitiesResult
+    .filter((row) => row.city)
+    .map((row) => ({
+      city: row.city || '',
+      citySlug: row.citySlug || createSlug(row.city || ''),
+      count: Number(row.count) || 0,
+    }))
 
-  const openingHours = parseOpeningHours(contractor.openingHours as string | null)
+  const rating = getValidRating(contractor.rating)
+  const reviewCount =
+    typeof contractor.reviewCount === 'number' &&
+    contractor.reviewCount > 0
+      ? contractor.reviewCount
+      : 0
+
+  const openingHours = formatOpeningHours(contractor.openingHours)
+  const services = getStringArray(contractor.servicesOffered)
+  const serviceAreas = getStringArray(contractor.serviceAreas)
+  const websiteUrl = getSafeWebsiteUrl(contractor.website)
+
+  const latitude =
+    contractor.latitude !== null && contractor.latitude !== undefined
+      ? Number(contractor.latitude)
+      : null
+
+  const longitude =
+    contractor.longitude !== null && contractor.longitude !== undefined
+      ? Number(contractor.longitude)
+      : null
+
+  const hasCoordinates =
+    latitude !== null &&
+    longitude !== null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+
+  const locationText = [
+    contractor.city,
+    contractor.state_abbrev || contractor.state,
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    '@id': `https://roofernet.com/${state}/${contractor.slug}#business`,
+    name: contractor.name,
+    url: `https://roofernet.com/${state}/${contractor.slug}`,
+    ...(contractor.description
+      ? { description: contractor.description }
+      : {}),
+    ...(contractor.phone
+      ? { telephone: contractor.phone }
+      : {}),
+    ...(websiteUrl
+      ? { sameAs: [websiteUrl] }
+      : {}),
+    ...(contractor.address ||
+    contractor.city ||
+    contractor.state ||
+    contractor.zipCode
+      ? {
+          address: {
+            '@type': 'PostalAddress',
+            ...(contractor.address
+              ? { streetAddress: contractor.address }
+              : {}),
+            ...(contractor.city
+              ? { addressLocality: contractor.city }
+              : {}),
+            ...(contractor.state_abbrev || contractor.state
+              ? {
+                  addressRegion:
+                    contractor.state_abbrev || contractor.state,
+                }
+              : {}),
+            ...(contractor.zipCode
+              ? { postalCode: contractor.zipCode }
+              : {}),
+            addressCountry: 'US',
+          },
+        }
+      : {}),
+    ...(hasCoordinates
+      ? {
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude,
+            longitude,
+          },
+        }
+      : {}),
+    ...(rating !== null && reviewCount > 0
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: rating,
+            reviewCount,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-600 mb-8">
-        <Link href="/" className="hover:text-blue-600">Home</Link>
-        <span className="mx-2">/</span>
-        <Link href={`/${stateSlug}`} className="hover:text-blue-600">
-          {contractor.state || stateName}
+    <div className="container mx-auto max-w-6xl px-4 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
+        }}
+      />
+
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-8 text-sm text-gray-600"
+      >
+        <Link href="/" className="hover:text-blue-600">
+          Home
         </Link>
+        <span className="mx-2">/</span>
+
+        <Link href={`/${state}`} className="hover:text-blue-600">
+          {stateName}
+        </Link>
+
+        {contractor.city && citySlug && (
+          <>
+            <span className="mx-2">/</span>
+            <Link
+              href={`/${state}?city=${citySlug}`}
+              className="hover:text-blue-600"
+            >
+              {contractor.city}
+            </Link>
+          </>
+        )}
+
         <span className="mx-2">/</span>
         <span className="text-gray-800">{contractor.name}</span>
       </nav>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content - 2 columns */}
-        <div className="lg:col-span-2">
-          {/* Contractor Card */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <main className="lg:col-span-2">
           <ContractorCard
             contractor={{
               ...contractor,
               city: contractor.city || '',
-              state: contractor.state || stateName,
+              state: stateName,
             }}
-            stateSlug={stateSlug}
-            citySlug={contractor.city ? contractor.city.toLowerCase().replace(/[^a-z0-9]+/g, '-') : ''}
+            stateSlug={state}
+            citySlug={citySlug}
             variant="detailed"
           />
 
-          {/* Reviews */}
-          {contractorReviews.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6 mt-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                Google Reviews ({contractorReviews.length})
+          <ListingAccuracyPanel
+            contractorName={contractor.name}
+            updatedAt={contractor.updatedAt}
+            verified={contractor.verified}
+          />
+
+          {(services.length > 0 || serviceAreas.length > 0) && (
+            <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-xl font-bold text-gray-900">
+                Listing details
               </h2>
-              <div className="space-y-4">
-                {contractorReviews.map((review) => (
-                  <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <RatingStars rating={review.rating} />
-                      <span className="font-semibold text-gray-900">
-                        {review.authorName || 'Anonymous'}
+
+              {services.length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-semibold text-gray-900">
+                    Services listed
+                  </h3>
+
+                  <div className="flex flex-wrap gap-2">
+                    {services.map((service) => (
+                      <span
+                        key={service}
+                        className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700"
+                      >
+                        {service}
                       </span>
-                      <span className="text-sm text-gray-400">•</span>
-                      <span className="text-sm text-gray-500">
-                        {new Date(review.publishedAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </span>
-                      {review.googleReviewId && (
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3" />
-                          Google
-                        </span>
-                      )}
-                    </div>
-                    {review.content && (
-                      <p className="text-gray-700 leading-relaxed">{review.content}</p>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Confirm current services directly with the business.
+                  </p>
+                </div>
+              )}
+
+              {serviceAreas.length > 0 && (
+                <div className={services.length > 0 ? 'mt-5' : ''}>
+                  <h3 className="mb-2 font-semibold text-gray-900">
+                    Service areas listed
+                  </h3>
+
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {serviceAreas.join(', ')}
+                  </p>
+                </div>
+              )}
+            </section>
           )}
 
-          <div>
-            <RatingSummary
-              averageRating={avgRating}
-              totalReviews={totalReviews}
-              ratingDistribution={{
-                5: contractorReviews.filter(r => r.rating === 5).length,
-                4: contractorReviews.filter(r => r.rating === 4).length,
-                3: contractorReviews.filter(r => r.rating === 3).length,
-                2: contractorReviews.filter(r => r.rating === 2).length,
-                1: contractorReviews.filter(r => r.rating === 1).length,
-              }}
+          <section className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-6">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              Before contacting {contractor.name}
+            </h2>
+
+            <p className="mb-4 text-sm leading-relaxed text-gray-700">
+              RooferNet provides directory information rather than roofing
+              services. Before hiring any contractor, confirm the details that
+              matter for your project directly with the business.
+            </p>
+
+            <ul className="space-y-3 text-sm text-gray-700">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                <span>
+                  Ask for a written estimate describing labor, materials,
+                  cleanup, timing, and payment terms.
+                </span>
+              </li>
+
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                <span>
+                  Verify licensing, insurance, permits, and warranty coverage
+                  where applicable.
+                </span>
+              </li>
+
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                <span>
+                  Confirm that the business serves {locationText || 'your area'}
+                  and handles your type of roofing project.
+                </span>
+              </li>
+
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                <span>
+                  Compare more than one estimate and avoid relying only on
+                  ratings or directory placement.
+                </span>
+              </li>
+            </ul>
+          </section>
+
+          <section className="mt-6">
+            <ReviewList contractorId={contractor.id} />
+
+            <ReviewForm
+              contractorId={contractor.id}
               className="mt-6"
             />
+          </section>
 
-            {/* Claim Business Button */}
-            <div className="mt-4">
-              <ClaimBusinessButton 
-                contractorId={contractor.id}
-                contractorName={contractor.name}
-                variant="button"
-              />
-            </div>
-
-            {/* Review List */}
-            <ReviewList contractorId={contractor.id} className="mt-6" />
-
-            {/* Review Form */}
-            <ReviewForm contractorId={contractor.id} className="mt-6" />
+          <div className="mt-6">
+            <DirectoryDisclosure />
           </div>
 
-          {/* Related Content */}
           <RelatedContent
             city={contractor.city || ''}
-            state={contractor.state || stateName}
-            service="Roof Leak Repair"
+            state={stateName}
+            service="Roofing Contractors"
             relatedContractors={relatedContractors}
             nearbyCities={nearbyCities}
           />
-        </div>
+        </main>
 
-        {/* Sidebar - 1 column */}
-        <div className="space-y-6">
-          {/* Rating & Review Summary Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-              Rating & Reviews
-            </h3>
-            <div className="flex items-center gap-4 mb-2">
-              <div className="text-4xl font-bold text-gray-900">{avgRating.toFixed(1)}</div>
-              <div>
-                <RatingStars rating={avgRating} />
-                <div className="text-sm text-gray-500 mt-1">
-                  Based on {totalReviews} {totalReviews === 1 ? 'Google review' : 'Google reviews'} 
+        <aside className="space-y-6">
+          {(rating !== null || reviewCount > 0) && (
+            <section className="rounded-lg bg-white p-6 shadow">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                Public rating information
+              </h2>
+
+              {rating !== null && (
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl font-bold text-gray-900">
+                    {rating.toFixed(1)}
+                  </div>
+
+                  <div>
+                    <RatingStars rating={rating} />
+
+                    {reviewCount > 0 && (
+                      <div className="mt-1 text-sm text-gray-500">
+                        Based on {reviewCount.toLocaleString()}{' '}
+                        {reviewCount === 1 ? 'review' : 'reviews'}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-            {contractor.verified && (
-              <div className="mt-3 flex items-center gap-2 text-green-600 text-sm">
-                <Shield className="w-4 h-4" />
-                Verified Contractor
-              </div>
-            )}
-            {contractor.featured && (
-              <div className="flex items-center gap-2 text-yellow-600 text-sm">
-                <Award className="w-4 h-4" />
-                Featured Listing
-              </div>
-            )}
-          </div>
+              )}
+
+              <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                Rating information may originate from a public listing source
+                and can change over time.
+              </p>
+
+              {contractor.featured && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-yellow-700">
+                  <Award className="h-4 w-4" />
+                  Paid featured placement
+                </div>
+              )}
+            </section>
+          )}
 
           <AdvertiseCta />
 
-          {/* Opening Hours in Sidebar */}
-          {openingHours && openingHours.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-500" />
-                Hours of Operation
-              </h3>
+          {openingHours.length > 0 && (
+            <section className="rounded-lg bg-white p-6 shadow">
+              <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+                <Clock className="h-5 w-5 text-blue-500" />
+                Listed business hours
+              </h2>
+
               <div className="space-y-1 text-sm">
-                {openingHours.slice(0, 7).map((item) => (
-                  <div key={item.day} className="flex justify-between py-1 border-b border-gray-50 last:border-0">
-                    <span className="text-gray-600">{item.day}</span>
-                    <span className="font-medium text-gray-800">
-                      {item.open === '24/7' || item.close === '24/7' ? '24/7' : 
-                       item.open && item.close ? `${item.open} – ${item.close}` :
-                       item.open || 'Closed'}
+                {openingHours.slice(0, 7).map((item, index) => (
+                  <div
+                    key={`${item.day}-${index}`}
+                    className="flex justify-between gap-4 border-b border-gray-50 py-1 last:border-0"
+                  >
+                    <span className="text-gray-600">
+                      {item.day || 'Hours'}
+                    </span>
+                    <span className="text-right font-medium text-gray-800">
+                      {item.hours || 'Not provided'}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Confirm hours before visiting.
+              </p>
+            </section>
           )}
 
-          {/* Map */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-blue-500" />
-              Location
-            </h3>
-            <Map
-              businessName={contractor.name}
-              address={contractor.address || undefined}
-              city={contractor.city || ''}
-              state={contractor.state || stateName}
-              latitude={latitude ? parseFloat(latitude as string) : undefined}
-              longitude={longitude ? parseFloat(longitude as string) : undefined}
-            />
-          </div>
+          {(contractor.address || hasCoordinates) && (
+            <section className="rounded-lg bg-white p-4 shadow">
+              <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+                <MapPin className="h-5 w-5 text-blue-500" />
+                Listed location
+              </h2>
 
-          {/* Quick Info */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-500" />
-              Quick Info
-            </h3>
+              <Map
+                businessName={contractor.name}
+                address={contractor.address || undefined}
+                city={contractor.city || ''}
+                state={stateName}
+                latitude={hasCoordinates ? latitude : undefined}
+                longitude={hasCoordinates ? longitude : undefined}
+              />
+
+              <p className="mt-3 text-xs text-gray-500">
+                Map placement is based on the listing information available to
+                RooferNet. Confirm the address with the business.
+              </p>
+            </section>
+          )}
+
+          <section className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <FileCheck className="h-5 w-5 text-blue-500" />
+              Business information
+            </h2>
+
             <div className="space-y-3 text-sm">
-              {contractor.yearsInBusiness && (
-                <div className="flex justify-between py-2 border-b border-gray-50">
-                  <span className="text-gray-600">Years in Business</span>
-                  <span className="font-medium flex items-center gap-1">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    {contractor.yearsInBusiness}
-                  </span>
-                </div>
-              )}
-              {contractor.licenseNumber && (
-                <div className="flex justify-between py-2 border-b border-gray-50">
-                  <span className="text-gray-600">License</span>
-                  <span className="font-medium text-sm">{contractor.licenseNumber}</span>
-                </div>
-              )}
-              {contractor.insuranceVerified && (
-                <div className="flex justify-between py-2 border-b border-gray-50">
-                  <span className="text-gray-600">Insurance</span>
-                  <span className="text-green-600 font-medium flex items-center gap-1">
-                    <FileCheck className="w-4 h-4" />
-                    Verified
-                  </span>
-                </div>
-              )}
-              {contractor.freeEstimates && (
-                <div className="flex justify-between py-2 border-b border-gray-50">
-                  <span className="text-gray-600">Free Estimates</span>
-                  <span className="text-green-600 font-medium">✓ Yes</span>
-                </div>
-              )}
-              {contractor.financingAvailable && (
-                <div className="flex justify-between py-2 border-b border-gray-50">
-                  <span className="text-gray-600">Financing</span>
-                  <span className="text-green-600 font-medium flex items-center gap-1">
-                    <CreditCard className="w-4 h-4" />
-                    Available
-                  </span>
-                </div>
-              )}
-              {contractor.warrantyOffered && (
-                <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Warranty</span>
-                  <span className="text-green-600 font-medium">✓ Offered</span>
-                </div>
-              )}
-            </div>
-          </div>
+              {contractor.yearsInBusiness !== null &&
+                contractor.yearsInBusiness !== undefined &&
+                contractor.yearsInBusiness > 0 && (
+                  <InfoRow label="Years in business">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {contractor.yearsInBusiness}
+                    </span>
+                  </InfoRow>
+                )}
 
-          {/* Contact Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Phone className="w-5 h-5 text-blue-500" />
-              Contact
-            </h3>
-            <div className="space-y-3">
-              {contractor.phone && (
-                <a
-                  href={`tel:${contractor.phone}`}
-                  className="flex items-center gap-3 text-gray-700 hover:text-blue-600 transition p-3 hover:bg-blue-50 rounded-lg"
-                >
-                  <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span className="font-medium">{contractor.phone}</span>
-                </a>
+              {contractor.licenseNumber && (
+                <InfoRow label="License number">
+                  <span className="break-all text-right">
+                    {contractor.licenseNumber}
+                  </span>
+                </InfoRow>
               )}
-              {contractor.website && (
-                <a
-                  href={contractor.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 text-gray-700 hover:text-blue-600 transition p-3 hover:bg-purple-50 rounded-lg truncate"
-                >
-                  <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-lg">🌐</span>
-                  </div>
-                  <span className="truncate font-medium">{contractor.website.replace(/^https?:\/\//, '')}</span>
-                </a>
+
+              {contractor.insuranceVerified && (
+                <InfoRow label="Insurance record">
+                  <span className="flex items-center gap-1 text-green-700">
+                    <ShieldCheck className="h-4 w-4" />
+                    Marked verified
+                  </span>
+                </InfoRow>
               )}
-              {contractor.address && (
-                <div className="flex items-start gap-3 text-gray-700 p-3 hover:bg-gray-50 rounded-lg">
-                  <div className="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <MapPin className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <span className="text-sm">{contractor.address}</span>
-                </div>
+
+              {contractor.emergencyService && (
+                <InfoRow label="Emergency service">
+                  <span className="font-medium">Listed as available</span>
+                </InfoRow>
               )}
+
+              {contractor.freeEstimates && (
+                <InfoRow label="Free estimates">
+                  <span className="font-medium">Listed as offered</span>
+                </InfoRow>
+              )}
+
+              {contractor.financingAvailable && (
+                <InfoRow label="Financing">
+                  <span className="flex items-center gap-1">
+                    <CreditCard className="h-4 w-4 text-gray-400" />
+                    Listed as available
+                  </span>
+                </InfoRow>
+              )}
+
+              {contractor.warrantyOffered && (
+                <InfoRow label="Warranty">
+                  <span className="font-medium">Listed as offered</span>
+                </InfoRow>
+              )}
+
+              {!contractor.licenseNumber &&
+                !contractor.insuranceVerified &&
+                !contractor.emergencyService &&
+                !contractor.freeEstimates &&
+                !contractor.financingAvailable &&
+                !contractor.warrantyOffered &&
+                !contractor.yearsInBusiness && (
+                  <p className="text-gray-600">
+                    Additional qualification and service information has not
+                    been supplied for this listing.
+                  </p>
+                )}
             </div>
-          </div>
-        </div>
+
+            <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>
+                Verify licenses, insurance, estimates, financing, warranties,
+                and emergency availability directly before hiring.
+              </span>
+            </div>
+          </section>
+
+          {(contractor.phone || websiteUrl || contractor.address) && (
+            <section className="rounded-lg bg-white p-6 shadow">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                <Phone className="h-5 w-5 text-blue-500" />
+                Contact information
+              </h2>
+
+              <div className="space-y-3">
+                {contractor.phone && (
+                  <a
+                    href={`tel:${contractor.phone}`}
+                    className="flex items-center gap-3 rounded-lg p-3 text-gray-700 transition hover:bg-blue-50 hover:text-blue-600"
+                  >
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                      <Phone className="h-4 w-4 text-blue-600" />
+                    </span>
+
+                    <span className="font-medium">
+                      {contractor.phone}
+                    </span>
+                  </a>
+                )}
+
+                {websiteUrl && (
+                  <a
+                    href={websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="flex items-center gap-3 rounded-lg p-3 text-gray-700 transition hover:bg-purple-50 hover:text-blue-600"
+                  >
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-purple-100">
+                      <ExternalLink className="h-4 w-4 text-purple-600" />
+                    </span>
+
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {getDisplayDomain(websiteUrl)}
+                    </span>
+                  </a>
+                )}
+
+                {contractor.address && (
+                  <div className="flex items-start gap-3 rounded-lg p-3 text-gray-700">
+                    <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
+                      <MapPin className="h-4 w-4 text-orange-600" />
+                    </span>
+
+                    <span className="text-sm">
+                      {contractor.address}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          <ClaimBusinessButton
+            contractorId={contractor.id}
+            contractorName={contractor.name}
+            variant="button"
+          />
+        </aside>
       </div>
+    </div>
+  )
+}
+
+interface InfoRowProps {
+  label: string
+  children: React.ReactNode
+}
+
+function InfoRow({ label, children }: InfoRowProps) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-2 last:border-0">
+      <span className="text-gray-600">{label}</span>
+      <span className="text-right font-medium text-gray-800">
+        {children}
+      </span>
     </div>
   )
 }

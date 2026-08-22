@@ -1,16 +1,16 @@
 // components/layout/Footer.tsx
+import Link from 'next/link'
+import { eq, sql } from 'drizzle-orm'
+import {
+  Award,
+  Building,
+  Mail,
+  MapPin,
+  SearchCheck,
+} from 'lucide-react'
+
 import { getDb } from '@/lib/db'
 import { contractors } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
-import Link from 'next/link'
-
-import { 
-  Mail, 
-  MapPin, 
-  Clock,
-  Award,
-  Users
-} from 'lucide-react'
 import { BusinessActions } from '../business/BusinessActions'
 
 interface FooterProps {
@@ -18,181 +18,278 @@ interface FooterProps {
   cities?: { name: string; slug: string; stateSlug: string }[]
 }
 
-export default async function Footer({ states = [], cities = [] }: FooterProps) {
+export default async function Footer({
+  states: _states = [],
+  cities: _cities = [],
+}: FooterProps) {
   const db = getDb()
   const currentYear = new Date().getFullYear()
 
-  const statesWithCounts = await db
-    .select({
-      name: contractors.state,
-      slug: contractors.stateSlug,
-      count: sql<number>`COUNT(*)`.as('count'),
-    })
-    .from(contractors)
-    .where(eq(contractors.published, true))
-    .groupBy(contractors.state, contractors.stateSlug)
-    .orderBy(sql`count DESC`)
-    .limit(12)
+  const [statesWithCounts, totalsResult] = await Promise.all([
+    db
+      .select({
+        name: contractors.state,
+        slug: contractors.stateSlug,
+        count: sql<number>`COUNT(*)`.as('count'),
+      })
+      .from(contractors)
+      .where(eq(contractors.published, true))
+      .groupBy(contractors.state, contractors.stateSlug)
+      .orderBy(sql`COUNT(*) DESC`)
+      .limit(12),
 
-  // Format states
+    db
+      .select({
+        totalContractors: sql<number>`COUNT(*)`,
+        totalStates: sql<number>`
+          COUNT(DISTINCT ${contractors.stateSlug})
+        `,
+      })
+      .from(contractors)
+      .where(eq(contractors.published, true)),
+  ])
+
   const footerStates = statesWithCounts
-    .filter(item => item.name)
+    .filter((item) => item.name && item.slug)
     .map((item) => ({
-      name: item.name || 'Unknown',
-      slug: item.slug || 'unknown',
+      name: item.name as string,
+      slug: item.slug as string,
       count: Number(item.count) || 0,
     }))
 
-  const totalStates = footerStates.length
+  const totalContractors = Number(
+    totalsResult[0]?.totalContractors || 0
+  )
 
+  const totalStates = Number(
+    totalsResult[0]?.totalStates || 0
+  )
 
   return (
     <footer className="bg-gray-900 text-gray-300">
-      {/* Main Footer */}
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Company Info */}
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold text-white">
                 RN
               </div>
+
               <div>
-                <span className="text-xl font-bold text-white">Roofer</span>
-                <span className="text-xl text-gray-400 block -mt-1">Net.com</span>
+                <span className="text-xl font-bold text-white">
+                  Roofer
+                </span>
+                <span className="-mt-1 block text-xl text-gray-400">
+                  Net.com
+                </span>
               </div>
             </div>
-            <p className="text-sm text-gray-400 mb-4">
-              Find trusted roof leak repair contractors in your area. 
-              Compare reviews, get free estimates, and find emergency 
-              roof repair services 24/7.
+
+            <p className="mb-4 text-sm leading-relaxed text-gray-400">
+              Explore roofing contractors by state and location.
+              Compare available ratings, contact details and business
+              information before contacting a provider.
             </p>
-          
+
+            <Link
+              href="/how-roofernet-works"
+              className="inline-flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300"
+            >
+              <SearchCheck className="h-4 w-4" />
+              How RooferNet works
+            </Link>
           </div>
 
-          {/* Quick Links */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Quick Links</h3>
+            <h2 className="mb-4 font-semibold text-white">
+              Quick Links
+            </h2>
+
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/" className="hover:text-white transition">
+                <Link href="/" className="hover:text-white">
                   Home
                 </Link>
               </li>
+
               <li>
-                <Link href="/services" className="hover:text-white transition">
+                <Link href="/states" className="hover:text-white">
+                  Browse States
+                </Link>
+              </li>
+
+              <li>
+                <Link href="/services" className="hover:text-white">
                   Services
                 </Link>
               </li>
+
               <li>
-                <Link href="/blog" className="hover:text-white transition">
-                  Blog
+                <Link href="/blog" className="hover:text-white">
+                  Roofing Guides
                 </Link>
               </li>
+
               <li>
-                <Link href="/about" className="hover:text-white transition">
+                <Link href="/about" className="hover:text-white">
                   About Us
                 </Link>
               </li>
+
               <li>
-                <Link href="/contact" className="hover:text-white transition">
+                <Link
+                  href="/how-roofernet-works"
+                  className="hover:text-white"
+                >
+                  How RooferNet Works
+                </Link>
+              </li>
+
+              <li>
+                <Link href="/contact" className="hover:text-white">
                   Contact
                 </Link>
               </li>
-                <li>
-                <Link href="/privacy-policy" className="hover:text-white transition">
+
+              <li>
+                <Link
+                  href="/privacy-policy"
+                  className="hover:text-white"
+                >
                   Privacy Policy
                 </Link>
               </li>
-                <li>
-                <Link href="/terms" className="hover:text-white transition">
+
+              <li>
+                <Link href="/terms" className="hover:text-white">
                   Terms of Service
                 </Link>
               </li>
             </ul>
-            <h3 className="text-white font-semibold mb-4">For Businesses</h3>
+
+            <h2 className="mb-4 mt-6 font-semibold text-white">
+              For Businesses
+            </h2>
+
             <BusinessActions variant="footer" />
           </div>
 
-        <div>
-          <h3 className="text-white font-semibold mb-4">Top States</h3>
-          <div className="grid grid-cols-2 gap-1">
-            {footerStates.map((state) => (
-              <Link
-                key={state.slug}
-                href={`/${state.slug}`}
-                className="text-sm hover:text-white transition py-0.5"
-              >
-                {state.name} ({state.count})
-              </Link>
-            ))}
-            {states.length > 12 && (
-              <Link
-                href="/states"
-                className="text-sm text-blue-400 hover:text-blue-300 transition py-0.5 font-medium"
-              >
-                View All 50 States →
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-
-          {/* Contact Info */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Contact Us</h3>
+            <h2 className="mb-4 font-semibold text-white">
+              Top States
+            </h2>
+
+            <div className="grid grid-cols-2 gap-1">
+              {footerStates.map((state) => (
+                <Link
+                  key={state.slug}
+                  href={`/${state.slug}`}
+                  className="py-0.5 text-sm transition hover:text-white"
+                >
+                  {state.name} ({state.count})
+                </Link>
+              ))}
+
+              {totalStates > 12 && (
+                <Link
+                  href="/states"
+                  className="py-1 text-sm font-medium text-blue-400 hover:text-blue-300"
+                >
+                  View all states →
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-4 font-semibold text-white">
+              Contact and Directory
+            </h2>
+
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3">
-                <Mail className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
+                <Mail className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
+
                 <div>
-                  <div className="font-medium text-white">Email</div>
-                  <a href="mailto:info@roofernet.com" className="hover:text-white transition">
+                  <div className="font-medium text-white">
+                    Email
+                  </div>
+
+                  <a
+                    href="mailto:info@roofernet.com"
+                    className="hover:text-white"
+                  >
                     info@roofernet.com
                   </a>
                 </div>
               </li>
+
               <li className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 mt-0.5 text-blue-400 flex-shrink-0" />
+                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
+
                 <div>
-                  <div className="font-medium text-white">Address</div>
-                  <span>Serving All 50 States</span>
+                  <div className="font-medium text-white">
+                    Coverage
+                  </div>
+
+                  <span>
+                    Contractors listed across {totalStates} states
+                  </span>
                 </div>
               </li>
             </ul>
 
-            {/* Trust Badges */}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-             
-              <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
-                <Clock className="w-4 h-4 text-blue-400" />
-                <span>24/7 Support</span>
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs">
+                <Building className="h-4 w-4 text-blue-400" />
+
+                <span>
+                  {totalContractors.toLocaleString('en-US')} listings
+                </span>
               </div>
-              <div className="flex items-center gap-2 text-xs bg-gray-800 px-3 py-2 rounded-lg">
-                <Award className="w-4 h-4 text-yellow-400" />
-                <span>9,000+ Listed</span>
+
+              <div className="flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs">
+                <Award className="h-4 w-4 text-yellow-400" />
+
+                <span>Business claims available</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-      {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
+          <div className="flex flex-col items-center justify-between gap-4 text-sm text-gray-400 md:flex-row">
             <p>
-              &copy; {currentYear} roofnet.com. All rights reserved.
+              &copy; {currentYear} RooferNet.com. All rights reserved.
             </p>
-            <div className="flex items-center gap-6">
-              <Link href="/privacy-policy" className="hover:text-white transition">
+
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <Link
+                href="/how-roofernet-works"
+                className="hover:text-white"
+              >
+                Directory Methodology
+              </Link>
+
+              <Link
+                href="/privacy-policy"
+                className="hover:text-white"
+              >
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="hover:text-white transition">
+
+              <Link
+                href="/terms"
+                className="hover:text-white"
+              >
                 Terms of Service
               </Link>
             </div>
           </div>
         </div>
       </div>
-    </footer> 
+    </footer>
   )
 }

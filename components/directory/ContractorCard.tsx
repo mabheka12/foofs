@@ -2,342 +2,398 @@
 'use client'
 
 import Link from 'next/link'
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Globe,
+  MapPin,
+  Phone,
+  Shield,
+} from 'lucide-react'
+import { getUsefulContractorDescription } from '@/lib/contractorContent'
 import { RatingStars } from './RatingStars'
-import { MapPin, Phone, Globe, Clock, Shield, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface ContractorCardProps {
   contractor: any
   stateSlug: string
-  citySlug: string
+  citySlug?: string
   variant?: 'summary' | 'detailed'
 }
 
-export function ContractorCard({ 
-  contractor, 
-  stateSlug, 
-  citySlug, 
-  variant = 'summary'
+export function ContractorCard({
+  contractor,
+  stateSlug,
+  variant = 'summary',
 }: ContractorCardProps) {
   const isSummary = variant === 'summary'
 
-  // Generate Google Maps URL
+  const contractorName =
+    contractor.businessName || contractor.name || 'Roofing Contractor'
+
+  const usefulDescription = getUsefulContractorDescription(
+    contractor.description
+  )
+
+  // This matches app/[state]/[slug]/page.tsx.
+  const contractorUrl = `/${stateSlug}/${contractor.slug}`
+
   const getGoogleMapsUrl = () => {
     if (contractor.latitude && contractor.longitude) {
-      return `https://www.google.com/maps?q=${contractor.latitude},${contractor.longitude}`
+      const coordinates = `${contractor.latitude},${contractor.longitude}`
+
+      return `https://www.google.com/maps?q=${encodeURIComponent(
+        coordinates
+      )}`
     }
+
     if (contractor.address) {
-      return `https://www.google.com/maps?q=${encodeURIComponent(contractor.address)}`
+      return `https://www.google.com/maps?q=${encodeURIComponent(
+        contractor.address
+      )}`
     }
+
     return null
   }
 
   const mapsUrl = getGoogleMapsUrl()
 
-  // Summary View (for city page)
+  const location = [
+    typeof contractor.city === 'string'
+      ? contractor.city
+      : contractor.city?.name,
+    contractor.stateAbbrev ||
+      contractor.state_abbrev ||
+      contractor.state?.abbreviation ||
+      (typeof contractor.state === 'string' ? contractor.state : null),
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const services = Array.isArray(contractor.servicesOffered)
+    ? contractor.servicesOffered
+    : []
+
   if (isSummary) {
     return (
-      <div className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100">
-        {/* Header with Business Name */}
+      <article className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-lg transition-shadow duration-300 hover:shadow-xl">
         <div className="p-5 pb-3">
-          <Link href={`/${stateSlug}/${citySlug}/${contractor.slug}`}>
-            <h3 className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2">
-              {contractor.businessName || contractor.name}
+          <Link href={contractorUrl}>
+            <h3 className="line-clamp-2 text-xl font-bold text-gray-900 transition-colors hover:text-blue-600">
+              {contractorName}
             </h3>
           </Link>
 
-          {/* Rating */}
-          <div className="flex items-center gap-3 mt-2">
-            <RatingStars rating={contractor.rating || 0} />
+          <div className="mt-2 flex items-center gap-3">
+            <RatingStars rating={Number(contractor.rating) || 0} />
+
             <span className="text-sm text-gray-500">
-              ({contractor.reviewCount || 0} Google reviews)
+              ({Number(contractor.reviewCount) || 0} Google reviews)
             </span>
           </div>
 
-          {/* Location */}
-          <div className="flex items-start gap-2 text-gray-600 text-sm mt-2">
-            <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" />
-            <span className="line-clamp-1">
-              {contractor.address || `${contractor.city?.name || citySlug}, ${contractor.state?.abbreviation || stateSlug}`}
-            </span>
-          </div>
+          {usefulDescription && (
+            <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-gray-600">
+              {usefulDescription}
+            </p>
+          )}
 
-          {/* Phone */}
+          {(contractor.address || location) && (
+            <div className="mt-3 flex items-start gap-2 text-sm text-gray-600">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+
+              <span className="line-clamp-2">
+                {contractor.address || location}
+              </span>
+            </div>
+          )}
+
           {contractor.phone && (
-            <div className="flex items-center gap-2 text-gray-600 text-sm mt-1">
-              <Phone className="w-4 h-4 flex-shrink-0 text-blue-500" />
-              <a href={`tel:${contractor.phone}`} className="hover:text-blue-600">
+            <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
+              <Phone className="h-4 w-4 flex-shrink-0 text-blue-500" />
+
+              <a
+                href={`tel:${contractor.phone}`}
+                className="hover:text-blue-600"
+                onClick={(event) => event.stopPropagation()}
+              >
                 {contractor.phone}
               </a>
             </div>
           )}
 
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {contractor.verified && (
-              <span className="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" />
+              <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs text-green-800">
+                <CheckCircle className="h-3 w-3" />
                 Verified
               </span>
             )}
+
             {contractor.emergencyService && (
-              <span className="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Emergency
+              <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs text-red-800">
+                <AlertCircle className="h-3 w-3" />
+                Emergency service
               </span>
             )}
+
             {contractor.insuranceVerified && (
-              <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
-                <Shield className="w-3 h-3" />
-                Insured
+              <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-xs text-blue-800">
+                <Shield className="h-3 w-3" />
+                Insurance verified
               </span>
             )}
           </div>
 
-          {/* Services */}
-       {contractor.servicesOffered && contractor.servicesOffered.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {contractor.servicesOffered.slice(0, 3).map((service: string) => (
-              <Link
-                key={service}
-                href={`/services/${service.toLowerCase().replace(/\s+/g, '-')}/${contractor.city?.slug || citySlug}`}
-                className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full hover:bg-blue-100 transition"
-              >
-                {service}
-              </Link>
-            ))}
-            {contractor.servicesOffered.length > 3 && (
-              <span className="text-xs text-gray-500">
-                +{contractor.servicesOffered.length - 3} more
-              </span>
-            )}
-          </div>
-        )}
+          {services.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {services.slice(0, 3).map((service: string) => (
+                <span
+                  key={service}
+                  className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
+                >
+                  {service}
+                </span>
+              ))}
+
+              {services.length > 3 && (
+                <span className="px-1 py-1 text-xs text-gray-500">
+                  +{services.length - 3} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="px-5 pb-5 flex gap-3">
+        <div className="flex gap-3 px-5 pb-5">
           <Link
-            href={`/${stateSlug}/${citySlug}/${contractor.slug}`}
-            className="flex-1 text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            href={contractorUrl}
+            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            View Details
+            View details
           </Link>
+
           {mapsUrl && (
             <a
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              className="flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm transition-colors hover:bg-gray-50"
               title="Open in Google Maps"
+              aria-label={`Open location for ${contractorName} in Google Maps`}
             >
-              <MapPin className="w-4 h-4 text-blue-500" />
+              <MapPin className="h-4 w-4 text-blue-500" />
             </a>
           )}
+
           {contractor.phone && (
             <a
               href={`tel:${contractor.phone}`}
-              className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              title="Call now"
+              className="flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm transition-colors hover:bg-gray-50"
+              title="Call contractor"
+              aria-label={`Call ${contractorName}`}
             >
-              <Phone className="w-4 h-4 text-green-500" />
+              <Phone className="h-4 w-4 text-green-500" />
             </a>
           )}
         </div>
-      </div>
+      </article>
     )
   }
 
-  // Detailed View (for individual contractor page)
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* Full detailed view - this will be used inside the contractor page */}
+    <article className="overflow-hidden rounded-lg bg-white shadow-lg">
       <div className="p-6">
-        <h1 className="text-3xl font-bold mb-2">
-          {contractor.name}
-        </h1>
-        
-        {/* Rating */}
-        <div className="flex items-center gap-4 mb-4">
-          <RatingStars rating={contractor.rating || 0} />
+        <h1 className="mb-2 text-3xl font-bold">{contractorName}</h1>
+
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <RatingStars rating={Number(contractor.rating) || 0} />
+
           <span className="text-gray-600">
-            ({contractor.reviewCount || 0} Google reviews)
+            ({Number(contractor.reviewCount) || 0} Google reviews)
           </span>
+
           {contractor.verified && (
-            <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1">
-              <CheckCircle className="w-4 h-4" />
+            <span className="flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+              <CheckCircle className="h-4 w-4" />
               Verified
             </span>
           )}
+
           {contractor.emergencyService && (
-            <span className="bg-red-100 text-red-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              Emergency Service
+            <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+              <AlertCircle className="h-4 w-4" />
+              Emergency service
             </span>
           )}
         </div>
 
-        {/* Description */}
-        {contractor.description && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">About</h2>
-            <p className="text-gray-700 whitespace-pre-line">{contractor.description}</p>
-          </div>
+        {usefulDescription && (
+          <section className="mb-6">
+            <h2 className="mb-2 text-xl font-semibold">
+              About {contractorName}
+            </h2>
+
+            <p className="whitespace-pre-line leading-relaxed text-gray-700">
+              {usefulDescription}
+            </p>
+          </section>
         )}
 
-        {/* Contact Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Contact Information</h3>
-            
+        <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Contact information</h2>
+
             {contractor.address && (
               <div className="flex items-start gap-2 text-gray-600">
-                <MapPin className="w-5 h-5 mt-0.5 text-blue-500 flex-shrink-0" />
+                <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-500" />
                 <span>{contractor.address}</span>
               </div>
             )}
-            
+
             {contractor.phone && (
               <div className="flex items-center gap-2 text-gray-600">
-                <Phone className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <a href={`tel:${contractor.phone}`} className="hover:text-blue-600">
+                <Phone className="h-5 w-5 flex-shrink-0 text-blue-500" />
+
+                <a
+                  href={`tel:${contractor.phone}`}
+                  className="hover:text-blue-600"
+                >
                   {contractor.phone}
                 </a>
               </div>
             )}
-            
+
             {contractor.website && (
               <div className="flex items-center gap-2 text-gray-600">
-                <Globe className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <a 
-                  href={contractor.website} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="hover:text-blue-600 truncate"
+                <Globe className="h-5 w-5 flex-shrink-0 text-blue-500" />
+
+                <a
+                  href={contractor.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate hover:text-blue-600"
                 >
-                  {contractor.website}
+                  {contractor.website.replace(/^https?:\/\//, '')}
                 </a>
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Business Details</h3>
-            
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Business details</h2>
+
             {contractor.yearsInBusiness && (
               <div className="flex items-center gap-2 text-gray-600">
-                <Clock className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span>{contractor.yearsInBusiness} years in business</span>
+                <Clock className="h-5 w-5 flex-shrink-0 text-blue-500" />
+
+                <span>
+                  {contractor.yearsInBusiness} years in business
+                </span>
               </div>
             )}
-            
+
             {contractor.licenseNumber && (
-              <div className="flex items-center gap-2 text-gray-600">
-                <Shield className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span>License: {contractor.licenseNumber}</span>
+              <div className="flex items-start gap-2 text-gray-600">
+                <Shield className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-500" />
+
+                <span className="break-all">
+                  License: {contractor.licenseNumber}
+                </span>
               </div>
             )}
-            
+
             {contractor.insuranceVerified && (
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="w-5 h-5" />
-                <span>Insurance Verified</span>
+                <CheckCircle className="h-5 w-5" />
+                <span>Insurance verified</span>
               </div>
             )}
-            
+
             {contractor.freeEstimates && (
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="w-5 h-5" />
-                <span>Free Estimates</span>
+                <CheckCircle className="h-5 w-5" />
+                <span>Free estimates</span>
               </div>
             )}
-            
+
             {contractor.financingAvailable && (
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="w-5 h-5" />
-                <span>Financing Available</span>
+                <CheckCircle className="h-5 w-5" />
+                <span>Financing available</span>
               </div>
             )}
-            
+
             {contractor.warrantyOffered && (
               <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="w-5 h-5" />
-                <span>Warranty Offered</span>
+                <CheckCircle className="h-5 w-5" />
+                <span>Warranty offered</span>
               </div>
             )}
-          </div>
+          </section>
         </div>
 
-        {/* Services */}
-        {contractor.servicesOffered && contractor.servicesOffered.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-3">Services Offered</h2>
+        {services.length > 0 && (
+          <section className="mb-6">
+            <h2 className="mb-3 text-xl font-semibold">
+              Services offered
+            </h2>
+
             <div className="flex flex-wrap gap-2">
-              {contractor.servicesOffered.map((service: string) => (
+              {services.map((service: string) => (
                 <span
                   key={service}
-                  className="bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm font-medium"
+                  className="rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800"
                 >
                   {service}
                 </span>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Location Map */}
-        {(contractor.latitude && contractor.longitude) && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-3">Location</h2>
-            <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
-              <iframe
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${contractor.latitude},${contractor.longitude}&output=embed`}
-                title={`Map of ${contractor.businessName || contractor.name}`}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
         <div className="flex flex-wrap gap-4">
           {contractor.phone && (
             <a
               href={`tel:${contractor.phone}`}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-3 text-white transition hover:bg-green-700"
             >
-              <Phone className="w-5 h-5" />
-              Call Now
+              <Phone className="h-5 w-5" />
+              Call now
             </a>
           )}
+
           {contractor.website && (
             <a
               href={contractor.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-gray-100 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-gray-100 px-6 py-3 text-gray-800 transition hover:bg-gray-200"
             >
-              <Globe className="w-5 h-5" />
-              Visit Website
+              <Globe className="h-5 w-5" />
+              Visit website
             </a>
           )}
-          {contractor.latitude && contractor.longitude && (
+
+          {mapsUrl && (
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${contractor.latitude},${contractor.longitude}`}
+              href={
+                contractor.latitude && contractor.longitude
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                      `${contractor.latitude},${contractor.longitude}`
+                    )}`
+                  : mapsUrl
+              }
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700"
             >
-              <MapPin className="w-5 h-5" />
-              Get Directions
+              <MapPin className="h-5 w-5" />
+              Get directions
             </a>
           )}
         </div>
       </div>
-    </div>
+    </article>
   )
 }

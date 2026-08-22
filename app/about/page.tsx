@@ -1,136 +1,302 @@
 // app/about/page.tsx
-import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import Link from 'next/link'
-import { Shield, Users, Clock, } from 'lucide-react'
+import {
+  ArrowRight,
+  Building,
+  Database,
+  RefreshCw,
+  Scale,
+  SearchCheck,
+  ShieldCheck,
+} from 'lucide-react'
+
+import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
+import { DirectoryDisclosure } from '@/components/directory/DirectoryDisclosure'
 
 export const metadata = generateSeoMetadata({
-  title: 'About Us - Roof Leak Repair Directory',
-  description: 'Learn about Roof Leak Repair Directory - our mission to connect homeowners with trusted roof leak repair contractors. Find verified professionals in your area.',
-  keywords: ['about us', 'roof leak repair directory', 'trusted contractors', 'roofing professionals'],
+  title: 'About RooferNet',
+
+  description:
+    'Learn how RooferNet organizes roofing contractor listings, presents available business information and helps visitors browse providers by location.',
+
+  keywords: [
+    'about RooferNet',
+    'roofing contractor directory',
+    'roofing business listings',
+    'roofing directory',
+  ],
+
   canonical: '/about',
 })
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'About RooferNet',
+  description:
+    'Information about RooferNet and its roofing contractor directory.',
+  url: 'https://www.roofernet.com/about',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'RooferNet',
+    url: 'https://www.roofernet.com',
+    email: 'info@roofernet.com',
+  },
+}
+
 export default function AboutPage() {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-600 mb-8">
-        <Link href="/" className="hover:text-blue-600">Home</Link>
+    <main className="container mx-auto max-w-5xl px-4 py-8">
+      <nav className="mb-8 text-sm text-gray-600">
+        <Link
+          href="/"
+          className="hover:text-blue-600"
+        >
+          Home
+        </Link>
+
         <span className="mx-2">/</span>
-        <span className="text-gray-800">About Us</span>
+
+        <span className="text-gray-800">
+          About RooferNet
+        </span>
       </nav>
 
-      {/* Hero Section */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-          Connecting Homeowners with <span className="text-blue-600">Trusted Roofing Professionals</span>
+      <header className="mb-12 text-center">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+          <Building className="h-4 w-4" />
+          Roofing contractor directory
+        </div>
+
+        <h1 className="text-4xl font-bold text-gray-900 md:text-5xl">
+          About{' '}
+          <span className="text-blue-600">
+            RooferNet
+          </span>
         </h1>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          We make it easy to find reliable roof leak repair contractors in your area. 
-          Our mission is to connect you with verified professionals who deliver quality work.
-        </p>
-      </div>
 
-      {/* Mission Section */}
-      <div className="bg-blue-50 rounded-2xl p-8 mb-12">
-        <div className="grid items-center">
+        <p className="mx-auto mt-5 max-w-3xl text-xl leading-relaxed text-gray-600">
+          RooferNet organizes roofing contractor information by state
+          and location, making it easier to browse available business
+          details from one directory.
+        </p>
+      </header>
+
+      <section className="mb-12 rounded-2xl bg-blue-50 p-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+            <SearchCheck className="h-6 w-6" />
+          </div>
+
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
-            <p className="text-gray-700 leading-relaxed">
-              We believe every homeowner deserves access to trustworthy roofing professionals. 
-              Our platform eliminates the guesswork by connecting you with verified contractors 
-              who have proven track records of excellence.
-            </p>
-         
-          </div>
-        </div>
-      </div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Our Purpose
+            </h2>
 
-      {/* How It Works */}
-      <div className="mb-12">
-        <h2 className="text-2xl font-bold text-center mb-8">How It Works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center p-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-blue-600">1</span>
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Search</h3>
-            <p className="text-gray-600 text-sm">
-              Enter your city or zip code to find contractors in your area.
+            <p className="mt-4 leading-relaxed text-gray-700">
+              Finding roofing businesses across many separate websites
+              and location results can be time-consuming. RooferNet
+              provides a browsable directory where visitors can compare
+              available ratings, contact details, locations and other
+              business information.
             </p>
-          </div>
-          <div className="text-center p-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-blue-600">2</span>
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Compare</h3>
-            <p className="text-gray-600 text-sm">
-              Read reviews, compare ratings, and find the right professional for your needs.
-            </p>
-          </div>
-          <div className="text-center p-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-blue-600">3</span>
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Connect</h3>
-            <p className="text-gray-600 text-sm">
-              Contact contractors directly and get free estimates for your project.
+
+            <p className="mt-4 leading-relaxed text-gray-700">
+              RooferNet is not a roofing contractor and does not perform
+              repairs, provide project estimates or enter into contracts
+              on behalf of listed businesses. Visitors contact
+              contractors directly and remain responsible for their
+              hiring decisions.
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Values */}
-      <div className="mb-12">
-        <h2 className="text-2xl font-bold text-center mb-8">Our Values</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <Shield className="w-6 h-6 text-blue-600" />
-              <h3 className="font-semibold">Trust & Transparency</h3>
+      <section className="mb-12">
+        <h2 className="text-center text-2xl font-bold text-gray-900">
+          How to Use RooferNet
+        </h2>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
+              1
             </div>
-             <p className="text-gray-600 text-sm">
-              We strive to provide accurate and up-to-date business information to help homeowners make informed decisions.
-               Our goal is to create a transparent directory where users can compare local roofing companies and choose the service that best meets their needs.
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              Browse
+            </h3>
+
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Browse published contractor listings by state or use the
+              search page to narrow results by business name and
+              location.
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <Users className="w-6 h-6 text-blue-600" />
-              <h3 className="font-semibold">Community First</h3>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
+              2
             </div>
-            <p className="text-gray-600 text-sm">
-              We prioritize the needs of homeowners and contractors, building a community of trust.
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              Compare
+            </h3>
+
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Review available ratings, review counts, locations,
+              contact details and other information displayed on each
+              listing.
             </p>
           </div>
-      
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <Clock className="w-6 h-6 text-blue-600" />
-              <h3 className="font-semibold">24/7 Support</h3>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-bold text-blue-700">
+              3
             </div>
-            <p className="text-gray-600 text-sm">
-              Whether you're dealing with storm damage, roof leaks, or urgent repairs, our directory helps you locate roofing contractors that offer emergency services in many areas.
+
+            <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              Confirm
+            </h3>
+
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Contact businesses directly and confirm credentials,
+              service availability, project scope, materials, warranties
+              and payment terms.
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Contact CTA */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-8 text-center text-white">
-        <h2 className="text-2xl font-bold mb-4">Have Questions?</h2>
-        <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-          We're here to help you find the right contractor for your roofing needs.
+      <section className="mb-12">
+        <h2 className="text-center text-2xl font-bold text-gray-900">
+          Our Directory Principles
+        </h2>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <Database className="h-6 w-6 text-blue-600" />
+
+              <h3 className="font-semibold text-gray-900">
+                Factual Information
+              </h3>
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-600">
+              We aim to display available business information without
+              inventing services, credentials, availability or other
+              claims that are not present in a listing’s data.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <ShieldCheck className="h-6 w-6 text-blue-600" />
+
+              <h3 className="font-semibold text-gray-900">
+                Clear Labels
+              </h3>
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-600">
+              Verified, featured, insurance and other labels appear only
+              when the relevant listing field is present. Featured
+              placement is advertising, not an endorsement.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <RefreshCw className="h-6 w-6 text-blue-600" />
+
+              <h3 className="font-semibold text-gray-900">
+                Corrections
+              </h3>
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-600">
+              Business owners and visitors can report inaccurate or
+              outdated information. Material corrections may require
+              supporting information before they are applied.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <Scale className="h-6 w-6 text-blue-600" />
+
+              <h3 className="font-semibold text-gray-900">
+                Independent Decisions
+              </h3>
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-600">
+              Directory ordering, ratings and promotional placement do
+              not guarantee workmanship or suitability. Visitors should
+              perform their own checks before hiring.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <DirectoryDisclosure />
+      </section>
+
+      <section className="mb-12 rounded-2xl border border-gray-200 bg-gray-50 p-8">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Learn More About Our Listings
+        </h2>
+
+        <p className="mt-3 max-w-3xl leading-relaxed text-gray-600">
+          Our methodology page explains ordinary result ordering,
+          featured placement, listing labels, corrections and what
+          visitors should verify before hiring.
         </p>
-        <div className="flex flex-wrap justify-center gap-4">
+
+        <Link
+          href="/how-roofernet-works"
+          className="mt-5 inline-flex items-center gap-2 font-medium text-blue-600 hover:underline"
+        >
+          Read how RooferNet works
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </section>
+
+      <section className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 p-8 text-center text-white">
+        <h2 className="text-2xl font-bold">
+          Contact RooferNet
+        </h2>
+
+        <p className="mx-auto mt-3 max-w-2xl text-blue-100">
+          Contact us to report incorrect directory information, ask
+          about a listing or discuss business advertising.
+        </p>
+
+        <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Link
             href="/contact"
-            className="bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-blue-50 transition font-medium"
+            className="rounded-lg bg-white px-6 py-3 font-medium text-blue-600 transition hover:bg-blue-50"
           >
             Contact Us
           </Link>
+
+          <Link
+            href="/states"
+            className="rounded-lg border border-white/50 px-6 py-3 font-medium text-white transition hover:bg-white/10"
+          >
+            Browse Directory
+          </Link>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd),
+        }}
+      />
+    </main>
   )
 }

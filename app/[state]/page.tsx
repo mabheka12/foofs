@@ -1,13 +1,21 @@
 // app/[state]/page.tsx
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { and, eq, sql } from 'drizzle-orm'
+import { Building, ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react'
+
 import { generateMetadata as generateSeoMetadata } from '@/lib/seo'
 import { getDb } from '@/lib/db'
 import { contractors } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
-import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { MapPin, Phone, Star, Building, Clock, CheckCircle, X } from 'lucide-react'
+import { stateIntros } from '@/lib/stateIntros'
+import { getFaqsForState } from '@/lib/stateFaqs'
 import { FeaturedContractors } from '@/components/directory/FeaturedContractors'
+import { ContractorCard } from '@/components/directory/ContractorCard'
+import { StateFaqSection } from '@/components/directory/StateFaqSection'
 import AdvertiseCta from '@/components/business/AdvertiseCta'
+
+const CONTRACTORS_PER_PAGE = 24
 
 interface StatePageProps {
   params: Promise<{
@@ -15,29 +23,96 @@ interface StatePageProps {
   }>
   searchParams: Promise<{
     city?: string
+    page?: string
   }>
 }
 
-export async function generateMetadata({ params }: StatePageProps) {
+function formatSlug(slug: string) {
+  return slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function parsePageNumber(value?: string) {
+  if (!value) return 1
+
+  const parsed = Number.parseInt(value, 10)
+
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 1
+  }
+
+  return parsed
+}
+
+function buildPageHref({
+  stateSlug,
+  selectedCity,
+  page,
+}: {
+  stateSlug: string
+  selectedCity?: string
+  page: number
+}) {
+  const params = new URLSearchParams()
+
+  if (selectedCity) {
+    params.set('city', selectedCity)
+  }
+
+  if (page > 1) {
+    params.set('page', String(page))
+  }
+
+  const query = params.toString()
+
+  return query ? `/${stateSlug}?${query}` : `/${stateSlug}`
+}
+
+function getVisiblePageNumbers(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages = new Set<number>([
+    1,
+    totalPages,
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+  ])
+
+  return Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b)
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: StatePageProps): Promise<Metadata> {
   const { state } = await params
-  
+  const { city, page } = await searchParams
+
   if (!state) {
-    return generateSeoMetadata({
+    return {
       title: 'State Not Found',
       description: 'The state you are looking for could not be found.',
-       canonical: `/${state}`,
-    alternates: {
-      canonical: `/${state}`,
-    },
-    })
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
   }
 
   const db = getDb()
-  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const stateName = formatSlug(state)
+  const currentPage = parsePageNumber(page)
 
-  // Check if there are contractors for this state
   const stateExists = await db
-    .select({ count: sql<number>`COUNT(*)` })
+    .select({
+      count: sql<number>`COUNT(*)`,
+    })
     .from(contractors)
     .where(
       and(
@@ -45,50 +120,121 @@ export async function generateMetadata({ params }: StatePageProps) {
         eq(contractors.stateSlug, state)
       )
     )
-    .limit(1)
 
-  if (!stateExists[0]?.count) {
-    return generateSeoMetadata({
+  if (!Number(stateExists[0]?.count)) {
+    return {
       title: 'State Not Found',
       description: 'The state you are looking for could not be found.',
-    })
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
   }
 
-  return generateSeoMetadata({
-    title: `Roof Leak Repair Contractors in ${stateName}`,
-    description: `Find trusted roof leak repair contractors in ${stateName}. Compare reviews, get free estimates, and find emergency roof repair services near you.`,
-    keywords: [`roof leak repair ${stateName}`, `roofing contractors ${stateName}`, `emergency roof repair ${stateName}`],
+  const metadata = generateSeoMetadata({
+    title:
+      currentPage > 1
+        ? `Roofing Contractors in ${stateName} - Page ${currentPage}`
+        : `Roofing Contractors in ${stateName}`,
+    description: `Find trusted roofing contractors in ${stateName}. Compare ratings, contact details and available roofing services.`,
+    keywords: [
+      `roofing ${stateName}`,
+      `roofing contractors ${stateName}`,
+      `roof repair ${stateName}`,
+    ],
     canonical: `/${state}`,
   })
+
+  return {
+    ...metadata,
+
+    // City filters and pagination are useful for visitors but should not
+    // become separate indexed versions of the state landing page.
+    robots:
+      city || currentPage > 1
+        ? {
+            index: false,
+            follow: true,
+          }
+        : {
+            index: true,
+            follow: true,
+          },
+  }
 }
 
-export default async function StatePage({ params, searchParams }: StatePageProps) {
+export default async function StatePage({
+  params,
+  searchParams,
+}: StatePageProps) {
   const { state } = await params
-  const { city: selectedCity } = await searchParams
-  
+  const { city: selectedCity, page } = await searchParams
+
   if (!state) {
     notFound()
   }
 
   const db = getDb()
   const stateSlug = state
-  const stateName = state.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  const stateName = formatSlug(state)
+  const currentPage = parsePageNumber(page)
 
-  // Build the where clause for contractors
-  let whereClause = and(
+  const stateWhereClause = and(
     eq(contractors.published, true),
     eq(contractors.stateSlug, stateSlug)
   )
 
-  // If a city is selected, filter by city
-  if (selectedCity) {
-    whereClause = and(
-      whereClause,
-      eq(contractors.citySlug, selectedCity)
-    )
+  const filteredWhereClause = selectedCity
+    ? and(
+        eq(contractors.published, true),
+        eq(contractors.stateSlug, stateSlug),
+        eq(contractors.citySlug, selectedCity)
+      )
+    : stateWhereClause
+
+  /*
+   * These statistics cover every contractor matching the current state/city
+   * filter. They are not limited to the current pagination page.
+   */
+  const statisticsResult = await db
+    .select({
+      totalContractors: sql<number>`COUNT(*)`,
+     averageRating: sql<string | null>`
+        AVG(${contractors.rating})
+      `,
+      emergencyCount: sql<number>`
+        COUNT(*) FILTER (
+          WHERE ${contractors.emergencyService} = true
+        )
+      `,
+    })
+    .from(contractors)
+    .where(filteredWhereClause)
+
+  const totalContractors = Number(
+    statisticsResult[0]?.totalContractors || 0
+  )
+
+  if (totalContractors === 0) {
+    notFound()
   }
 
-  // Get contractors for this state (with optional city filter)
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalContractors / CONTRACTORS_PER_PAGE)
+  )
+
+  /*
+   * A page beyond the last available page should not return a duplicate or
+   * empty 200 response.
+   */
+  if (currentPage > totalPages) {
+    notFound()
+  }
+
+  const offset = (currentPage - 1) * CONTRACTORS_PER_PAGE
+
   const contractorsList = await db
     .select({
       id: contractors.id,
@@ -110,18 +256,20 @@ export default async function StatePage({ params, searchParams }: StatePageProps
       longitude: contractors.longitude,
       verified: contractors.verified,
       emergencyService: contractors.emergencyService,
+      insuranceVerified: contractors.insuranceVerified,
+      freeEstimates: contractors.freeEstimates,
+      financingAvailable: contractors.financingAvailable,
+      warrantyOffered: contractors.warrantyOffered,
       featured: contractors.featured,
     })
     .from(contractors)
-    .where(whereClause)
-    .orderBy(desc(contractors.rating), contractors.name)
+    .where(filteredWhereClause)
+    .orderBy(
+      sql`${contractors.rating} DESC NULLS LAST`,
+    )
+    .limit(CONTRACTORS_PER_PAGE)
+    .offset(offset)
 
-  // If no contractors found, show 404
-  if (contractorsList.length === 0) {
-    notFound()
-  }
-
-  // Get cities with contractor counts for this state
   const citiesWithCounts = await db
     .select({
       city: contractors.city,
@@ -129,227 +277,361 @@ export default async function StatePage({ params, searchParams }: StatePageProps
       count: sql<number>`COUNT(${contractors.id})`.as('count'),
     })
     .from(contractors)
-    .where(
-      and(
-        eq(contractors.published, true),
-        eq(contractors.stateSlug, stateSlug)
-      )
-    )
+    .where(stateWhereClause)
     .groupBy(contractors.city, contractors.citySlug)
-    .orderBy(sql`count DESC`)
+    .orderBy(
+      sql`COUNT(${contractors.id}) DESC`,
+      contractors.city
+    )
 
-  const totalContractors = contractorsList.length
-  const selectedCityName = selectedCity ? selectedCity.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null
+  const averageRating = Number(
+    statisticsResult[0]?.averageRating || 0
+  )
 
-  // Calculate average rating
-  const avgRating = contractorsList.reduce((acc, c) => acc + (Number(c.rating) || 0), 0) / (contractorsList.filter(c => c.rating).length || 1)
+  const emergencyCount = Number(
+    statisticsResult[0]?.emergencyCount || 0
+  )
 
-  // Count emergency service providers
-  const emergencyCount = contractorsList.filter(c => c.emergencyService).length
+  const selectedCityRecord = selectedCity
+    ? citiesWithCounts.find((city) => city.citySlug === selectedCity)
+    : null
+
+  const selectedCityName = selectedCityRecord?.city
+    ? selectedCityRecord.city
+    : selectedCity
+      ? formatSlug(selectedCity)
+      : null
+
+  const stateContent = stateIntros[stateSlug]
+
+  const showPrimaryStateContent =
+    currentPage === 1 && !selectedCity
+
+  const faqs = showPrimaryStateContent
+    ? getFaqsForState(stateSlug, stateName)
+    : []
+
+  const visiblePageNumbers = getVisiblePageNumbers(
+    currentPage,
+    totalPages
+  )
+
+  const firstResult = offset + 1
+  const lastResult = Math.min(
+    offset + CONTRACTORS_PER_PAGE,
+    totalContractors
+  )
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-600 mb-8">
-        <Link href="/" className="hover:text-blue-600">Home</Link>
+      <nav className="mb-8 text-sm text-gray-600">
+        <Link href="/" className="hover:text-blue-600">
+          Home
+        </Link>
+
         <span className="mx-2">/</span>
-        <Link href="/states" className="hover:text-blue-600">States</Link>
+
+        <Link href="/states" className="hover:text-blue-600">
+          States
+        </Link>
+
         <span className="mx-2">/</span>
-        <span className="text-gray-800">{stateName}</span>
-        {selectedCityName && (
+
+        {selectedCityName ? (
+          <>
+            <Link
+              href={`/${stateSlug}`}
+              className="hover:text-blue-600"
+            >
+              {stateName}
+            </Link>
+
+            <span className="mx-2">/</span>
+            <span className="text-gray-800">
+              {selectedCityName}
+            </span>
+          </>
+        ) : (
+          <span className="text-gray-800">{stateName}</span>
+        )}
+
+        {currentPage > 1 && (
           <>
             <span className="mx-2">/</span>
-            <span className="text-gray-800">{selectedCityName}</span>
+            <span className="text-gray-800">
+              Page {currentPage}
+            </span>
           </>
         )}
       </nav>
 
-      {/* State Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          {selectedCityName ? (
-            <>Roof Leak Repair Contractors in {selectedCityName}, {stateName}</>
-          ) : (
-            <>Roof Leak Repair Contractors in {stateName}</>
-          )}
+      <header className="mb-12">
+        <h1 className="mb-4 text-4xl font-bold text-gray-900">
+          {selectedCityName
+            ? `Roofing Contractors in ${selectedCityName}, ${stateName}`
+            : `Roofing Contractors in ${stateName}`}
         </h1>
-        <p className="text-xl text-gray-600 max-w-3xl">
-          {selectedCityName ? (
-            <>Find the best roof leak repair professionals in {selectedCityName}, {stateName}. Compare reviews, get free estimates, and find emergency roof repair services near you.</>
-          ) : (
-            <>Find the best roof leak repair professionals in {stateName}. Compare reviews, get free estimates, and find emergency roof repair services near you.</>
-          )}
+
+        <p className="text-xl text-gray-600">
+          {selectedCityName
+            ? `Compare roofing contractors serving ${selectedCityName}, ${stateName}. View ratings, contact details and available business information.`
+            : `Compare roofing contractors across ${stateName}. View ratings, contact details and available business information to help you choose a provider.`}
         </p>
-      </div>
 
-      {/*
-        FIX: stateAbbrev was previously missing here, which made this call
-        take the NATIONAL branch of getFeaturedContractors' scope filter
-        instead of the state branch -- so a state-scoped purchase (like
-        contractor #6, featured_scope='state') could never match and never
-        rendered, even though the underlying data was completely correct.
-      */}
-      <FeaturedContractors
-        stateAbbrev={contractorsList[0]?.stateAbbrev ?? undefined}
-        title={`Featured in ${stateName}`}
-        limit={6}
-      />
+        {showPrimaryStateContent && stateContent && (
+          <div className="mt-4 space-y-2 text-gray-700">
+            <p>{stateContent.intro}</p>
 
-      <AdvertiseCta />
+            <p className="text-sm italic text-gray-500">
+              💡 {stateContent.tip}
+            </p>
+          </div>
+        )}
+      </header>
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-blue-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-blue-600">{totalContractors}</div>
+      {showPrimaryStateContent && (
+        <>
+          <FeaturedContractors
+            stateAbbrev={
+              contractorsList[0]?.stateAbbrev ?? undefined
+            }
+            title={`Featured in ${stateName}`}
+            limit={6}
+          />
+
+          <AdvertiseCta />
+        </>
+      )}
+
+      <section
+        aria-label="Contractor statistics"
+        className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4"
+      >
+        <div className="rounded-lg bg-blue-50 p-4 text-center">
+          <div className="text-3xl font-bold text-blue-600">
+            {totalContractors}
+          </div>
+
           <div className="text-sm text-gray-600">
-            {selectedCityName ? 'Contractors in City' : 'Total Contractors'}
+            {selectedCityName
+              ? 'Contractors in City'
+              : 'Total Contractors'}
           </div>
         </div>
-        <div className="bg-green-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-green-600">{citiesWithCounts.length}</div>
-          <div className="text-sm text-gray-600">Cities with Contractors</div>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-purple-600">
-            {avgRating > 0 ? avgRating.toFixed(1) : 'N/A'}
-          </div>
-          <div className="text-sm text-gray-600">Average Rating</div>
-        </div>
-        <div className="bg-orange-50 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-orange-600">{emergencyCount}</div>
-          <div className="text-sm text-gray-600">24/7 Emergency Service</div>
-        </div>
-      </div>
 
-      {/* City Filter Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Cities in {stateName}</h2>
+        <div className="rounded-lg bg-green-50 p-4 text-center">
+          <div className="text-3xl font-bold text-green-600">
+            {selectedCityName ? 1 : citiesWithCounts.length}
+          </div>
+
+          <div className="text-sm text-gray-600">
+            {selectedCityName
+              ? 'Selected City'
+              : 'Cities with Contractors'}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-purple-50 p-4 text-center">
+          <div className="text-3xl font-bold text-purple-600">
+            {averageRating > 0
+              ? averageRating.toFixed(1)
+              : 'N/A'}
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Average Rating
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-orange-50 p-4 text-center">
+          <div className="text-3xl font-bold text-orange-600">
+            {emergencyCount}
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Emergency Service
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-bold">
+            Cities in {stateName}
+          </h2>
+
           {selectedCity && (
             <Link
               href={`/${stateSlug}`}
-              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
               Clear filter
             </Link>
           )}
         </div>
+
         <div className="flex flex-wrap gap-2">
           {citiesWithCounts.map((city) => {
-            if (!city.citySlug) return null
+            if (!city.citySlug || !city.city) return null
+
             const isActive = selectedCity === city.citySlug
+
             return (
               <Link
                 key={city.citySlug}
-                href={`/${stateSlug}?city=${city.citySlug}`}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-colors ${
-                  isActive 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-gray-100 hover:bg-blue-100 text-gray-700'
+                href={buildPageHref({
+                  stateSlug,
+                  selectedCity: city.citySlug,
+                  page: 1,
+                })}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-blue-100'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5" />
+                <MapPin className="h-3.5 w-3.5" />
+
                 {city.city}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
-                }`}>
+
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    isActive
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
                   {Number(city.count)}
                 </span>
               </Link>
             )
           })}
         </div>
-      </div>
 
-      {/* Contractors List */}
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Building className="w-6 h-6" />
-            {selectedCityName ? `Contractors in ${selectedCityName}` : `All Contractors in ${stateName}`}
+        {showPrimaryStateContent && (
+          <StateFaqSection faqs={faqs} />
+        )}
+      </section>
+
+      <section>
+        <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <h2 className="flex items-center gap-2 text-2xl font-bold">
+            <Building className="h-6 w-6" />
+
+            {selectedCityName
+              ? `Contractors in ${selectedCityName}`
+              : `Contractors in ${stateName}`}
           </h2>
-          <span className="text-sm text-gray-500">{totalContractors} contractors found</span>
+
+          <span className="text-sm text-gray-500">
+            Showing {firstResult}–{lastResult} of{' '}
+            {totalContractors}
+          </span>
         </div>
 
-        {contractorsList.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 text-lg">No contractors found in {selectedCityName || stateName}.</p>
-            {selectedCity && (
-              <Link 
-                href={`/${stateSlug}`}
-                className="text-blue-600 hover:underline mt-2 inline-block"
-              >
-                View all contractors in {stateName}
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {contractorsList.map((contractor) => (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {contractorsList.map((contractor) => (
+            <ContractorCard
+              key={contractor.id}
+              contractor={contractor}
+              stateSlug={stateSlug}
+            />
+          ))}
+        </div>
+
+        {totalPages > 1 && (
+          <nav
+            aria-label="Contractor result pages"
+            className="mt-10 flex flex-wrap items-center justify-center gap-2"
+          >
+            {currentPage > 1 ? (
               <Link
-                key={contractor.id}
-                href={`/${stateSlug}/${contractor.slug}`}
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow hover:border-blue-300 group flex flex-col"
+                href={buildPageHref({
+                  stateSlug,
+                  selectedCity,
+                  page: currentPage - 1,
+                })}
+                rel="prev"
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition line-clamp-2">
-                    {contractor.name}
-                  </h3>
-                  {contractor.rating && (
-                    <div className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded flex-shrink-0 ml-2">
-                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      <span className="font-bold text-sm">{Number(contractor.rating).toFixed(1)}</span>
-                      {contractor.reviewCount && (
-                        <span className="text-xs text-gray-500">({contractor.reviewCount})</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-gray-600 text-sm mb-3 line-clamp-2 flex-grow">
-                  {contractor.description || 'Professional roof leak repair services.'}
-                </p>
-
-                <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                  {contractor.city && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {contractor.city}, {contractor.stateAbbrev}
-                    </span>
-                  )}
-                  {contractor.phone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5" />
-                      {contractor.phone}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {contractor.emergencyService && (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Emergency 24/7
-                    </span>
-                  )}
-                  {contractor.verified && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Verified
-                    </span>
-                  )}
-                  {contractor.featured && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                      ★ Featured
-                    </span>
-                  )}
-                </div>
+                <ChevronLeft className="h-4 w-4" />
+                Previous
               </Link>
-            ))}
-          </div>
+            ) : (
+              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-400">
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </span>
+            )}
+
+            {visiblePageNumbers.map((pageNumber, index) => {
+              const previousNumber =
+                visiblePageNumbers[index - 1]
+
+              const needsEllipsis =
+                previousNumber &&
+                pageNumber - previousNumber > 1
+
+              return (
+                <span
+                  key={pageNumber}
+                  className="contents"
+                >
+                  {needsEllipsis && (
+                    <span
+                      aria-hidden="true"
+                      className="px-1 text-gray-400"
+                    >
+                      …
+                    </span>
+                  )}
+
+                  {pageNumber === currentPage ? (
+                    <span
+                      aria-current="page"
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+                    >
+                      {pageNumber}
+                    </span>
+                  ) : (
+                    <Link
+                      href={buildPageHref({
+                        stateSlug,
+                        selectedCity,
+                        page: pageNumber,
+                      })}
+                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      {pageNumber}
+                    </Link>
+                  )}
+                </span>
+              )
+            })}
+
+            {currentPage < totalPages ? (
+              <Link
+                href={buildPageHref({
+                  stateSlug,
+                  selectedCity,
+                  page: currentPage + 1,
+                })}
+                rel="next"
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-400">
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            )}
+          </nav>
         )}
-      </div>
+      </section>
     </div>
   )
 }

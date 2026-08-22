@@ -1,103 +1,170 @@
 // components/directory/SearchFilter.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, X, Filter } from 'lucide-react'
+import {
+  useEffect,
+  useState,
+  useTransition,
+} from 'react'
+import {
+  useRouter,
+  useSearchParams,
+} from 'next/navigation'
+import {
+  Filter,
+  Search,
+  X,
+} from 'lucide-react'
 
 interface SearchFilterProps {
   className?: string
   compact?: boolean
 }
 
-export function SearchFilter({ className = '', compact = false }: SearchFilterProps) {
+export function SearchFilter({
+  className = '',
+  compact = false,
+}: SearchFilterProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+  const [isPending, startTransition] = useTransition()
+
   const [query, setQuery] = useState('')
-  const [serviceType, setServiceType] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [minRating, setMinRating] = useState('')
-  const [emergencyOnly, setEmergencyOnly] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
+  const [showAdvanced, setShowAdvanced] =
+    useState(false)
 
-  // Load initial values from URL
   useEffect(() => {
     setQuery(searchParams.get('q') || '')
-    setServiceType(searchParams.get('service') || '')
     setCity(searchParams.get('city') || '')
     setState(searchParams.get('state') || '')
-    setMinRating(searchParams.get('minRating') || '')
-    setEmergencyOnly(searchParams.get('emergency') === 'true')
+    setMinRating(
+      searchParams.get('minRating') || ''
+    )
+
+    if (searchParams.get('minRating')) {
+      setShowAdvanced(true)
+    }
   }, [searchParams])
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSearching(true)
-
+  function buildSearchUrl() {
     const params = new URLSearchParams()
-    if (query) params.set('q', query)
-    if (serviceType) params.set('service', serviceType)
-    if (city) params.set('city', city)
-    if (state) params.set('state', state)
-    if (minRating) params.set('minRating', minRating)
-    if (emergencyOnly) params.set('emergency', 'true')
+
+    const cleanedQuery = query.trim()
+    const cleanedCity = city.trim()
+    const cleanedState = state
+      .trim()
+      .toUpperCase()
+
+    if (cleanedQuery) {
+      params.set('q', cleanedQuery)
+    }
+
+    if (!compact && cleanedCity) {
+      params.set('city', cleanedCity)
+    }
+
+    if (!compact && cleanedState) {
+      params.set('state', cleanedState)
+    }
+
+    if (!compact && minRating) {
+      params.set('minRating', minRating)
+    }
+
     params.set('page', '1')
 
-    router.push(`/search?${params.toString()}`)
-    setIsSearching(false)
+    return `/search?${params.toString()}`
   }
 
-  const clearFilters = () => {
+  function handleSearch(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault()
+
+    startTransition(() => {
+      router.push(buildSearchUrl())
+    })
+  }
+
+  function clearFilters() {
     setQuery('')
-    setServiceType('')
     setCity('')
     setState('')
     setMinRating('')
-    setEmergencyOnly(false)
-    router.push('/search')
+    setShowAdvanced(false)
+
+    startTransition(() => {
+      router.push('/search')
+    })
   }
 
-  const hasActiveFilters = query || serviceType || city || state || minRating || emergencyOnly
+  const hasActiveFilters = Boolean(
+    query.trim() ||
+      (!compact &&
+        (city.trim() ||
+          state.trim() ||
+          minRating))
+  )
 
-  // Compact version for header/navbar
   if (compact) {
     return (
-      <form onSubmit={handleSearch} className={`flex flex-col sm:flex-row gap-3 ${className}`}>
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <form
+        onSubmit={handleSearch}
+        role="search"
+        className={`flex flex-col gap-3 sm:flex-row ${className}`}
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+          <label
+            htmlFor="compact-contractor-search"
+            className="sr-only"
+          >
+            Search contractors by name or location
+          </label>
+
           <input
-            type="text"
-            placeholder="Search by city, contractor, or service..."
+            id="compact-contractor-search"
+            type="search"
+            placeholder="Search by contractor name or location"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-            disabled={isSearching}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-11 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isPending}
           />
         </div>
+
         <button
           type="submit"
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-          disabled={isSearching}
+          disabled={isPending}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
         >
-          {isSearching ? (
+          {isPending ? (
             <>
-              <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-              Searching...
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Searching
             </>
           ) : (
-            'Search'
+            <>
+              <Search className="h-4 w-4" />
+              Search
+            </>
           )}
         </button>
+
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="px-4 py-2.5 text-gray-600 hover:text-gray-900 transition flex items-center gap-1"
+            disabled={isPending}
+            className="inline-flex items-center justify-center gap-1 rounded-lg px-4 py-3 text-gray-700 transition hover:bg-white/80 disabled:opacity-60"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
             Clear
           </button>
         )}
@@ -105,155 +172,193 @@ export function SearchFilter({ className = '', compact = false }: SearchFilterPr
     )
   }
 
-  // Full version for search page
   return (
-    <form onSubmit={handleSearch} className={`bg-white rounded-xl shadow-md p-6 ${className}`}>
-      {/* Row 1: Main Search */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Main Search */}
+    <form
+      onSubmit={handleSearch}
+      role="search"
+      className={`rounded-xl bg-white p-6 shadow-md ${className}`}
+    >
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+          <label
+            htmlFor="contractor-search"
+            className="sr-only"
+          >
+            Search by contractor name or location
+          </label>
+
           <input
-            type="text"
-            placeholder="Search by city, contractor, or service..."
+            id="contractor-search"
+            type="search"
+            placeholder="Contractor name or search term"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-            disabled={isSearching}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
+            className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-11 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isPending}
           />
         </div>
 
-            <select
-              value={serviceType}
-              onChange={(e) => {
-                const service = e.target.value
-                setServiceType(service)
-                // If there's a city selected, navigate directly
-                if (city && service) {
-                  router.push(`/services/${service.toLowerCase().replace(/\s+/g, '-')}/${city.toLowerCase().replace(/\s+/g, '-')}`)
-                }
-              }}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              disabled={isSearching}
-            >
-              <option value="">All Services</option>
-              <option value="Emergency">🚨 Emergency Repair</option>
-              <option value="Inspection">🔍 Roof Inspection</option>
-              <option value="Repair">🔧 Roof Leak Repair</option>
-              <option value="Replacement">🏗️ Roof Replacement</option>
-              <option value="Maintenance">🛠️ Maintenance</option>
-            </select>
+        <div>
+          <label
+            htmlFor="contractor-city"
+            className="sr-only"
+          >
+            City
+          </label>
 
-        {/* Location - City and State side by side */}
-        <div className="grid grid-cols-2 gap-2">
           <input
+            id="contractor-city"
             type="text"
             placeholder="City"
             value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-            disabled={isSearching}
+            onChange={(event) =>
+              setCity(event.target.value)
+            }
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isPending}
           />
+        </div>
+
+        <div>
+          <label
+            htmlFor="contractor-state"
+            className="sr-only"
+          >
+            Two-letter state abbreviation
+          </label>
+
           <input
+            id="contractor-state"
             type="text"
-            placeholder="State"
+            placeholder="State, e.g. TX"
             value={state}
-            onChange={(e) => setState(e.target.value.toUpperCase())}
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white uppercase"
+            onChange={(event) =>
+              setState(
+                event.target.value.toUpperCase()
+              )
+            }
             maxLength={2}
-            disabled={isSearching}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 uppercase text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isPending}
           />
         </div>
       </div>
 
-      {/* Row 2: Advanced Filters Toggle + Search Buttons */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <button
           type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
+          onClick={() =>
+            setShowAdvanced((current) => !current)
+          }
+          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          <Filter className="w-4 h-4" />
-          {showAdvanced ? 'Hide Advanced Filters' : 'Show Advanced Filters'}
+          <Filter className="h-4 w-4" />
+
+          {showAdvanced
+            ? 'Hide rating filter'
+            : 'Filter by rating'}
         </button>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="submit"
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 flex items-center gap-2"
-            disabled={isSearching}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
           >
-            {isSearching ? (
+            {isPending ? (
               <>
-                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                Searching...
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Searching
               </>
             ) : (
-              'Search'
+              <>
+                <Search className="h-4 w-4" />
+                Search
+              </>
             )}
           </button>
+
           {hasActiveFilters && (
             <button
               type="button"
               onClick={clearFilters}
-              className="px-4 py-2.5 text-gray-600 hover:text-gray-900 transition flex items-center gap-1"
+              disabled={isPending}
+              className="inline-flex items-center gap-1 rounded-lg px-4 py-2.5 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60"
             >
-              <X className="w-4 h-4" />
-              Clear All
+              <X className="h-4 w-4" />
+              Clear all
             </button>
           )}
         </div>
       </div>
 
-      {/* Row 3: Advanced Filters (expanded) */}
       {showAdvanced && (
-        <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Rating Filter */}
+        <div className="mt-4 grid gap-4 border-t border-gray-100 pt-4 md:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Rating
-            </label>
-            <select
-              value={minRating}
-              onChange={(e) => setMinRating(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
-              disabled={isSearching}
+            <label
+              htmlFor="minimum-rating"
+              className="mb-1 block text-sm font-medium text-gray-700"
             >
-              <option value="">Any Rating</option>
-              <option value="4.5">⭐ 4.5+</option>
-              <option value="4.0">⭐ 4.0+</option>
-              <option value="3.5">⭐ 3.5+</option>
-              <option value="3.0">⭐ 3.0+</option>
+              Minimum available rating
+            </label>
+
+            <select
+              id="minimum-rating"
+              value={minRating}
+              onChange={(event) =>
+                setMinRating(event.target.value)
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isPending}
+            >
+              <option value="">Any rating</option>
+              <option value="4.5">
+                4.5 and above
+              </option>
+              <option value="4.0">
+                4.0 and above
+              </option>
+              <option value="3.5">
+                3.5 and above
+              </option>
+              <option value="3.0">
+                3.0 and above
+              </option>
             </select>
           </div>
 
-          {/* Emergency Only */}
-          <div className="flex items-center">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={emergencyOnly}
-                onChange={(e) => setEmergencyOnly(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                disabled={isSearching}
-              />
-              <span className="text-sm font-medium text-gray-700">
-                🚨 Emergency Services Only
-              </span>
-            </label>
-          </div>
+          <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
+            <p className="font-medium text-gray-800">
+              Search tips
+            </p>
 
-          {/* Search Tips */}
-          <div className="text-sm text-gray-500">
-            <p className="font-medium text-gray-700 mb-1">Search Tips:</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>Search by city for local results</li>
-              <li>Use state abbreviations (TX, CA, FL)</li>
-              <li>Search by service type</li>
+            <ul className="mt-2 list-inside list-disc space-y-1">
+              <li>
+                Search by a contractor’s business name.
+              </li>
+              <li>
+                Enter a city to narrow the results.
+              </li>
+              <li>
+                Use a two-letter state abbreviation such as TX.
+              </li>
+              <li>
+                Ratings may originate from an identified external source.
+              </li>
             </ul>
           </div>
         </div>
       )}
+
+      <p className="mt-4 text-xs leading-relaxed text-gray-500">
+        Service specialization and emergency availability are not
+        currently searchable because RooferNet does not have verified
+        data for those fields across the directory.
+      </p>
     </form>
   )
 }
