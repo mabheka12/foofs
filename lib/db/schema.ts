@@ -143,7 +143,7 @@ export const businessClaims = pgTable('business_claims', {
   userName: varchar('user_name', { length: 255 }).notNull(),
   userPhone: varchar('user_phone', { length: 50 }),
   role: varchar('role', { length: 50 }).default('owner'),
-  proofDocuments: jsonb('proof_documents').$type<string[]>(),
+  proofDocuments: text('proof_documents').array(),
   message: text('message'),
   status: varchar('status', { length: 50 }).default('pending'),
   adminNotes: text('admin_notes'),
