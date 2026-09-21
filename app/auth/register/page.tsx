@@ -24,7 +24,7 @@ function RegisterForm() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -32,6 +32,14 @@ function RegisterForm() {
           full_name: fullName,
         },
       },
+    })
+    
+    console.log('SIGNUP RESULT:', {
+      data,
+      error,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      errorStatus: error?.status,
     })
 
     if (error) {
