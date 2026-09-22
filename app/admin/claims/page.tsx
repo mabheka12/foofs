@@ -352,15 +352,14 @@ export default function AdminClaimsPage() {
                           <div className="flex gap-2">
                             {claim.proofDocuments.map((doc, i) => (
                               <a
-                                key={i}
-                                href={doc}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                              >
-                                <FileText className="w-4 h-4" />
-                                Document {i + 1}
-                              </a>
+                                  href={`/api/claims/document?path=${encodeURIComponent(doc)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  Document {i + 1}
+                                </a>
                             ))}
                           </div>
                         </div>
