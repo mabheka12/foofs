@@ -6,6 +6,7 @@ import { eq, desc } from 'drizzle-orm'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Building, Star, Clock, CheckCircle, XCircle, AlertCircle, User, Mail, Phone } from 'lucide-react'
+import { DashboardLogoutButton } from '@/components/auth/DashboardLogoutButton'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -65,8 +66,12 @@ export default async function DashboardPage() {
               {user.email}
             </p>
           </div>
+          <div className="ml-auto">
+          <DashboardLogoutButton />
         </div>
+        </div>        
       </div>
+      
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
