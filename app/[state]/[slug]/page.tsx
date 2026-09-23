@@ -19,6 +19,13 @@ import {
   ShieldCheck,
   Star,
 } from 'lucide-react'
+import {
+  ContractorMediaGallery,
+} from '@/components/directory/ContractorMediaGallery'
+
+import {
+  ContractorPricing,
+} from '@/components/directory/ContractorPricing'
 
 import { RatingStars } from '@/components/directory/RatingStars'
 import { ContractorCard } from '@/components/directory/ContractorCard'
@@ -696,6 +703,26 @@ export default async function ContractorPage({
           )}
 
           <AdvertiseCta />
+
+          <ContractorMediaGallery
+              contractorId={contractor.id}
+              contractorName={contractor.name}
+            />
+
+            <ContractorPricing
+              priceRange={
+                contractor.priceRange
+              }
+              pricingNotes={
+                contractor.pricingNotes
+              }
+              minimumJobPrice={
+                contractor.minimumJobPrice
+              }
+              priceCurrency={
+                contractor.priceCurrency
+              }
+            />
 
           {openingHours.length > 0 && (
             <section className="rounded-lg bg-white p-6 shadow">

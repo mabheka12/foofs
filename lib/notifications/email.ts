@@ -6,7 +6,7 @@ import { EmailTemplates } from './templates'
 // Initialize Resend with API key
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'info@roofernet.com'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'RooferNet <noreply@updates.roofernet.com>'
 const ADMIN_EMAIL = process.env.RESEND_TO_EMAIL || 'admin@roofernet.com'
 
 // ============================================================

@@ -346,24 +346,29 @@ export default function AdminClaimsPage() {
                         </div>
                       )}
 
-                      {claim.proofDocuments && claim.proofDocuments.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-1">Proof Documents</h4>
-                          <div className="flex gap-2">
-                            {claim.proofDocuments.map((doc, i) => (
-                              <a
-                                  href={`/api/claims/document?path=${encodeURIComponent(doc)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                                >
-                                  <FileText className="w-4 h-4" />
-                                  Document {i + 1}
-                                </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                     {claim.proofDocuments &&
+                          claim.proofDocuments.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-1">
+                                Proof Documents
+                              </h4>
+
+                              <div className="flex flex-wrap gap-2">
+                                {claim.proofDocuments.map((doc, i) => (
+                                  <a
+                                    key={`${claim.id}-${doc}-${i}`}
+                                    href={`/api/claims/document?path=${encodeURIComponent(doc)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    Document {i + 1}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                       <div className="flex flex-wrap gap-3 pt-2">
                         {claim.status === 'pending' && (

@@ -3,7 +3,10 @@ import type { Config } from "drizzle-kit";
 import 'dotenv/config'; // Make sure your env variables are loaded
 
 export default defineConfig({
-  schema: "./lib/db/schema.ts", // (Update this to match your schema path)
+  schema: [
+  "./lib/db/schema.ts",
+  "./lib/db/ownerSchema.ts",
+],
   out: "./lib/db/migrations", // (Update this to your migration folder)
   dialect: "postgresql", // <--- ADD THIS LINE (or "mysql" / "sqlite")
   dbCredentials: {
