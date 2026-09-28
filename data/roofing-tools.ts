@@ -5,9 +5,19 @@ import {
   ChartNoAxesColumnIncreasing,
   House,
   Layers3,
+  type LucideIcon,
 } from 'lucide-react'
 
-export const roofingTools = [
+export type RoofingTool = {
+  slug: string
+  title: string
+  shortTitle: string
+  description: string
+  icon: LucideIcon
+  featured: boolean
+}
+
+export const roofingTools: RoofingTool[] = [
   {
     slug:
       'roof-replacement-cost-calculator',
@@ -40,6 +50,8 @@ export const roofingTools = [
       'Estimate roof surface area from the building footprint, roof pitch and eave overhang.',
 
     icon: House,
+
+    featured: false,
   },
 
   {
@@ -56,6 +68,8 @@ export const roofingTools = [
       'Estimate roofing squares and the number of shingle bundles needed for a roofing project.',
 
     icon: Layers3,
+
+    featured: false,
   },
 
   {
@@ -73,5 +87,7 @@ export const roofingTools = [
 
     icon:
       ChartNoAxesColumnIncreasing,
+
+    featured: false,
   },
-] as const
+]
