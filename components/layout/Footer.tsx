@@ -125,6 +125,15 @@ export default async function Footer({
               </li>
 
               <li>
+                <Link
+                  href="/tools"
+                  className="hover:text-white"
+                >
+                  Roofing Calculators
+                </Link>
+              </li>
+
+              <li>
                 <Link href="/blog" className="hover:text-white">
                   Roofing Guides
                 </Link>

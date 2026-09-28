@@ -23,7 +23,8 @@ export default async function SubmitBusinessPage() {
         </Link>
         <h1 className="text-3xl font-bold">Add Your Business</h1>
         <p className="text-gray-600">
-          Submit your roofing business to be listed in our directory.
+          Submit your roofing business to be listed in our directory. After registering your account and listed your business you can make updates
+          to your listings in the Business Owner's Dashboard.
           <Link href="/claim-business" className="ml-2 text-blue-600 hover:underline">
             Already listed? Claim it instead →
           </Link>
